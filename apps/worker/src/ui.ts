@@ -220,6 +220,8 @@ export function renderHomepageHtml(): string {
     </a>
     <div class="nav-links">
       <a href="/index" class="nav-link">Reliability Index</a>
+      <a href="/verify" class="nav-link">Verify Domain</a>
+      <a href="/docs/mcp-schema-drift" class="nav-link">Protocol Docs</a>
       <span class="shield-badge">SSL Labs for Agents</span>
     </div>
   </header>
@@ -262,7 +264,15 @@ export function renderHomepageHtml(): string {
   </main>
 
   <footer>
-    ActionGuard.ai &bull; The Evidence Layer for Machine-Discoverable Services &bull; <a href="/index" style="color:#60a5fa;text-decoration:none;">Public Index</a>
+    <div style="display:flex;justify-content:center;gap:20px;margin-bottom:12px;flex-wrap:wrap;">
+      <a href="/index" style="color:var(--text-muted);text-decoration:none;">Reliability Index</a>
+      <a href="/verify" style="color:var(--text-muted);text-decoration:none;">Claim &amp; Verify Domain</a>
+      <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;">Schema Drift Guide</a>
+      <a href="/docs/a2a-agent-card-generator" style="color:var(--text-muted);text-decoration:none;">A2A Protocol Guide</a>
+      <a href="/docs/dns-aid-setup" style="color:var(--text-muted);text-decoration:none;">DNS-AID Setup</a>
+      <a href="/sitemap.xml" style="color:var(--text-muted);text-decoration:none;">Sitemap</a>
+    </div>
+    <div>ActionGuard.ai &bull; Multi-Registry AI Agent Verification &amp; Drift Intelligence</div>
   </footer>
 </body>
 </html>`;
@@ -736,7 +746,11 @@ export function renderIndexHtml(services: Array<{
 <body>
   <header>
     <a href="/" class="logo">Action<span>Guard</span>.ai</a>
-    <a href="/" style="background:#2563eb;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Inspect Your Server</a>
+    <div style="display:flex;gap:16px;align-items:center;">
+      <a href="/verify" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Verify Domain</a>
+      <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Protocol Docs</a>
+      <a href="/" style="background:#2563eb;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Inspect Your Server</a>
+    </div>
   </header>
 
   <main>
