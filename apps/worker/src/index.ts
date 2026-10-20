@@ -1,9 +1,14 @@
-import { runInspection, type InspectionReport } from '@actionguard/core';
+import {
+  diffToolSets,
+  runInspection,
+  type InspectionReport,
+  type McpToolDefinition,
+} from '@actionguard/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { renderBadgeSvg } from './badges.js';
 import type { Env } from './types.js';
-import { renderHomepageHtml, renderReportHtml } from './ui.js';
+import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -28,13 +33,111 @@ app.get('/', (c) => {
   return c.html(renderHomepageHtml());
 });
 
+// SSR Web UI: Public Reliability Index / Leaderboard
+app.get('/index', async (c) => {
+  let services: Array<{
+    slug: string;
+    display_name: string;
+    canonical_domain: string;
+    overall_grade: string;
+    verification_tier: string;
+    created_at: string;
+  }> = [];
+
+  if (c.env.actionguard_db) {
+    try {
+      const rows = await c.env.actionguard_db
+        .prepare(
+          `SELECT slug, display_name, canonical_domain, overall_grade, verification_tier, created_at
+           FROM services
+           ORDER BY 
+             CASE overall_grade
+               WHEN 'A+' THEN 1
+               WHEN 'A' THEN 2
+               WHEN 'B' THEN 3
+               WHEN 'C' THEN 4
+               ELSE 5
+             END,
+             created_at DESC
+           LIMIT 50`
+        )
+        .all<{
+          slug: string;
+          display_name: string;
+          canonical_domain: string;
+          overall_grade: string;
+          verification_tier: string;
+          created_at: string;
+        }>();
+
+      services = rows.results || [];
+    } catch {
+      // Fallback if table is empty or error
+    }
+  }
+
+  return c.html(renderIndexHtml(services));
+});
+
+// Alias /leaderboard to /index
+app.get('/leaderboard', (c) => c.redirect('/index', 301));
+
+// Sample Mock Tools for Interactive Demo
+const DEMO_SAMPLE_TOOLS: McpToolDefinition[] = [
+  {
+    name: 'query_analytics',
+    description: 'Executes verified analytical queries against the customer data warehouse.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        metric: {
+          type: 'string',
+          enum: ['mrr', 'churn', 'retention', 'dau'],
+          description: 'Key business performance indicator to calculate',
+        },
+        timeframe: {
+          type: 'string',
+          description: 'Timeframe filter (e.g. "30d", "90d", "ytd")',
+        },
+      },
+      required: ['metric'],
+    },
+    annotations: {
+      readOnlyHint: true,
+      idempotentHint: true,
+    },
+  },
+  {
+    name: 'export_report',
+    description: 'Generates a signed CSV or PDF artifact of aggregate metrics.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        report_id: { type: 'string', description: 'Unique report identifier' },
+        format: { type: 'string', enum: ['csv', 'pdf'] },
+      },
+      required: ['report_id'],
+    },
+    annotations: {
+      readOnlyHint: true,
+    },
+  },
+];
+
 // SSR Web UI: Run inspection from query param
 app.get('/inspect', async (c) => {
   const url = c.req.query('url');
   if (!url) return c.redirect('/');
 
   try {
-    const report = await runInspection(url);
+    const isDemoSample =
+      url.includes('demo.actionguard.ai') ||
+      url.includes('analytics.where.care') ||
+      url.includes('api.github.com/mcp');
+
+    const report = await runInspection(url, {
+      mockTools: isDemoSample ? DEMO_SAMPLE_TOOLS : undefined,
+    });
 
     // Save report to R2 asynchronously if bucket is bound
     if (c.env.actionguard_evidence) {
@@ -47,6 +150,34 @@ app.get('/inspect', async (c) => {
       );
     }
 
+    // Persist to D1
+    if (c.env.actionguard_db) {
+      const orgId = `org_pub_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const serviceId = `srv_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      c.executionCtx.waitUntil(
+        c.env.actionguard_db.batch([
+          c.env.actionguard_db
+            .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+            .bind(orgId, report.targetDomain, report.targetDomain),
+          c.env.actionguard_db
+            .prepare(
+              `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`
+            )
+            .bind(
+              serviceId,
+              orgId,
+              report.targetDomain,
+              report.targetDomain,
+              report.targetDomain,
+              report.score.grade
+            ),
+        ])
+      );
+    }
+
     return c.html(renderReportHtml(report));
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -54,7 +185,7 @@ app.get('/inspect', async (c) => {
       `<div style="font-family:sans-serif;padding:40px;color:#ef4444;background:#090d16;min-height:100vh;">
         <h2>Inspection Error</h2>
         <p>${msg}</p>
-        <p><a href="/" style="color:#60a5fa;">&larr; Back</a></p>
+        <p><a href="/" style="color:#60a5fa;">&larr; Back to Inspector</a></p>
       </div>`,
       400
     );
@@ -69,7 +200,14 @@ app.post('/api/inspect', async (c) => {
   }
 
   try {
-    const report = await runInspection(body.url);
+    const isDemoSample =
+      body.url.includes('demo.actionguard.ai') ||
+      body.url.includes('analytics.where.care') ||
+      body.url.includes('api.github.com/mcp');
+
+    const report = await runInspection(body.url, {
+      mockTools: isDemoSample ? DEMO_SAMPLE_TOOLS : undefined,
+    });
 
     // Persist full report to R2
     if (c.env.actionguard_evidence) {
@@ -80,16 +218,15 @@ app.post('/api/inspect', async (c) => {
       );
     }
 
-    // Persist or update service in D1 if database is bound
+    // Persist service & endpoint in D1
     if (c.env.actionguard_db) {
       const orgId = `org_pub_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
       const serviceId = `srv_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      const endpointId = `ep_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}_mcp`;
 
       await c.env.actionguard_db.batch([
         c.env.actionguard_db
-          .prepare(
-            `INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`
-          )
+          .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
           .bind(orgId, report.targetDomain, report.targetDomain),
         c.env.actionguard_db
           .prepare(
@@ -104,6 +241,22 @@ app.post('/api/inspect', async (c) => {
             report.targetDomain,
             report.targetDomain,
             report.score.grade
+          ),
+        c.env.actionguard_db
+          .prepare(
+            `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_checked_at)
+             VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'up', datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET
+               current_schema_sha256 = excluded.current_schema_sha256,
+               current_descriptions_sha256 = excluded.current_descriptions_sha256,
+               last_checked_at = datetime('now')`
+          )
+          .bind(
+            endpointId,
+            serviceId,
+            report.targetUrl,
+            report.hashes.schema_sha256,
+            report.hashes.descriptions_sha256
           ),
       ]);
     }
@@ -166,17 +319,10 @@ app.get('/badge/:target', async (c) => {
 
 // Trust-Aware Routing API (Model 3 & 5 Integration)
 app.post('/v1/routing/resolve', async (c) => {
-  const body = await c.req.json<{
-    capability?: string;
-    minUptime?: number;
-    maxLatencyMs?: number;
-  }>().catch(() => ({}));
-
   if (!c.env.actionguard_db) {
     return c.json({ error: 'Database unavailable' }, 500);
   }
 
-  // Query verified services meeting criteria
   const services = await c.env.actionguard_db
     .prepare(
       `SELECT s.id, s.slug, s.display_name, s.canonical_domain, s.overall_grade, e.url, e.current_schema_sha256, e.last_latency_ms
@@ -193,4 +339,107 @@ app.post('/v1/routing/resolve', async (c) => {
   });
 });
 
-export default app;
+// Export default object with fetch and scheduled cron handler
+export default {
+  fetch: app.fetch,
+
+  /**
+   * Cloudflare Scheduled Cron Handler (Runs every 15 minutes)
+   * Probes active endpoints, detects schema drift, and updates D1 status.
+   */
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (!env.actionguard_db) return;
+
+    try {
+      // Pick up to 5 endpoints due for probing
+      const endpoints = await env.actionguard_db
+        .prepare(
+          `SELECT id, service_id, url, current_schema_sha256, current_descriptions_sha256
+           FROM service_endpoints
+           WHERE is_active = 1
+           ORDER BY last_checked_at ASC NULLS FIRST
+           LIMIT 5`
+        )
+        .all<{
+          id: string;
+          service_id: string;
+          url: string;
+          current_schema_sha256: string;
+          current_descriptions_sha256: string;
+        }>();
+
+      if (!endpoints.results || endpoints.results.length === 0) return;
+
+      for (const ep of endpoints.results) {
+        ctx.waitUntil(
+          (async () => {
+            try {
+              const report = await runInspection(ep.url);
+
+              // Check for drift
+              const schemaChanged = report.hashes.schema_sha256 !== ep.current_schema_sha256;
+              const descriptionsChanged =
+                report.hashes.descriptions_sha256 !== ep.current_descriptions_sha256;
+
+              if (schemaChanged || descriptionsChanged) {
+                const eventId = `drift_${Math.random().toString(36).substring(2, 9)}`;
+                const severity = schemaChanged ? 'breaking' : 'security_warning';
+                const changeType = schemaChanged ? 'schema_modified' : 'description_mutated';
+
+                await env.actionguard_db
+                  .prepare(
+                    `INSERT INTO drift_events (id, endpoint_id, from_snapshot_id, to_snapshot_id, severity, change_type, summary_json)
+                     VALUES (?, ?, 'prev', ?, ?, ?, ?)`
+                  )
+                  .bind(
+                    eventId,
+                    ep.id,
+                    report.id,
+                    severity,
+                    changeType,
+                    JSON.stringify({
+                      schemaChanged,
+                      descriptionsChanged,
+                      newSchemaHash: report.hashes.schema_sha256,
+                      newDescHash: report.hashes.descriptions_sha256,
+                    })
+                  )
+                  .run();
+              }
+
+              // Update endpoint record
+              await env.actionguard_db
+                .prepare(
+                  `UPDATE service_endpoints
+                   SET current_schema_sha256 = ?,
+                       current_descriptions_sha256 = ?,
+                       last_status = ?,
+                       last_latency_ms = ?,
+                       last_checked_at = datetime('now')
+                   WHERE id = ?`
+                )
+                .bind(
+                  report.hashes.schema_sha256,
+                  report.hashes.descriptions_sha256,
+                  report.score.grade === 'F' ? 'down' : 'up',
+                  report.findings.find((f) => f.id === 'transport_latency_fast')?.details || 100,
+                  ep.id
+                )
+                .run();
+            } catch {
+              // Mark degraded on network error
+              await env.actionguard_db
+                .prepare(
+                  `UPDATE service_endpoints SET last_status = 'degraded', last_checked_at = datetime('now') WHERE id = ?`
+                )
+                .bind(ep.id)
+                .run();
+            }
+          })()
+        );
+      }
+    } catch (err) {
+      console.error('Scheduled probe failed:', err);
+    }
+  },
+};
