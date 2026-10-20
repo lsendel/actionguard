@@ -12,6 +12,7 @@ import { renderRobotsTxt, renderSitemapXml } from './seo.js';
 import { renderServerProfileHtml } from './server-profile.js';
 import type { Env } from './types.js';
 import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
+import { renderVerifyHtml } from './verify.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -172,6 +173,95 @@ app.get('/docs/:slug', (c) => {
     return c.redirect('/index', 301);
   }
   return c.html(renderGuideHtml(guide));
+});
+
+// Self-Serve Domain Verification UI
+app.get('/verify', (c) => {
+  return c.html(renderVerifyHtml(c.req.query('domain')));
+});
+
+// Self-Serve Domain Verification API
+app.post('/api/verify/check', async (c) => {
+  const body = await c.req.json<{ domain?: string; token?: string }>().catch(() => null);
+  if (!body || !body.domain || !body.token) {
+    return c.json({ verified: false, message: 'Domain and token are required' }, 400);
+  }
+
+  const cleanDomain = body.domain.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+  const token = body.token.trim();
+  let verified = false;
+
+  // 1. Probe DNS TXT records via Cloudflare DoH
+  try {
+    const dohUrl = `https://cloudflare-dns.com/dns-query?name=${cleanDomain}&type=TXT`;
+    const res = await fetch(dohUrl, {
+      headers: { Accept: 'application/dns-json' },
+      signal: AbortSignal.timeout(3000),
+    });
+
+    if (res.ok) {
+      const data = (await res.json()) as { Answer?: Array<{ data: string }> };
+      if (data.Answer) {
+        for (const ans of data.Answer) {
+          const raw = ans.data.replace(/^"|"$/g, '');
+          if (raw.includes(`actionguard-verification=${token}`) || raw === token) {
+            verified = true;
+            break;
+          }
+        }
+      }
+    }
+  } catch {
+    // DNS check failed
+  }
+
+  // 2. Fallback: check /.well-known/actionguard-verification.txt
+  if (!verified) {
+    try {
+      const wellKnownUrl = `https://${cleanDomain}/.well-known/actionguard-verification.txt`;
+      const wkRes = await fetch(wellKnownUrl, { signal: AbortSignal.timeout(3000) });
+      if (wkRes.ok) {
+        const text = await wkRes.text();
+        if (text.trim() === token) {
+          verified = true;
+        }
+      }
+    } catch {
+      // Well-known check failed
+    }
+  }
+
+  if (verified && c.env.actionguard_db) {
+    // Find or update the service in D1
+    const service = await c.env.actionguard_db
+      .prepare(`SELECT id, slug FROM services WHERE canonical_domain = ? OR slug = ?`)
+      .bind(cleanDomain, cleanDomain)
+      .first<{ id: string; slug: string }>();
+
+    if (service) {
+      await c.env.actionguard_db
+        .prepare(`UPDATE services SET verification_tier = 'Domain Verified' WHERE id = ?`)
+        .bind(service.id)
+        .run();
+
+      return c.json({
+        verified: true,
+        slug: service.slug,
+        message: 'Domain ownership successfully verified via DNS/Well-Known challenge.',
+      });
+    }
+
+    return c.json({
+      verified: true,
+      slug: cleanDomain,
+      message: 'Domain ownership verified, but service was not yet indexed in database.',
+    });
+  }
+
+  return c.json({
+    verified: false,
+    message: `Verification token not found on ${cleanDomain}. Ensure the TXT record "actionguard-verification=${token}" is published.`,
+  });
 });
 
 // Sample Mock Tools for Interactive Demo
@@ -381,6 +471,7 @@ app.get('/badge/:target', async (c) => {
   const rawTarget = c.req.param('target');
   const slug = rawTarget.replace(/\.svg$/, '');
   let grade = 'A+';
+  let tier = 'unverified';
   let label = 'ActionGuard';
   let value = 'Verified';
 
@@ -393,14 +484,15 @@ app.get('/badge/:target', async (c) => {
 
       if (row && row.overall_grade) {
         grade = row.overall_grade;
-        value = `${grade} • Verified`;
+        tier = row.verification_tier || 'unverified';
+        value = tier === 'Domain Verified' ? `${grade} • Domain Owner` : `${grade} • Verified`;
       }
     }
   } catch {
     // Fallback gracefully
   }
 
-  const svg = renderBadgeSvg(label, value, grade);
+  const svg = renderBadgeSvg(label, value, grade, tier);
   return new Response(svg, {
     headers: {
       'Content-Type': 'image/svg+xml; charset=utf-8',

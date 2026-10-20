@@ -1,0 +1,30 @@
+name: 'ActionGuard Protocol CI Gate'
+description: 'Continuously verify MCP servers and A2A endpoints, prevent breaking schema drift, and detect prompt poisoning.'
+author: 'ActionGuard Architecture Team'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  target_url:
+    description: 'The target MCP server or A2A endpoint URL to probe'
+    required: true
+  pinned_hash:
+    description: 'The expected schema_sha256 digest to enforce'
+    required: false
+  fail_on_drift:
+    description: 'Exit with non-zero exit code if schema or descriptions drifted'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run ActionGuard Protocol Gate
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.pinned_hash }}" ]; then
+          npx --yes @actionguard/cli check "${{ inputs.target_url }}" --pin "${{ inputs.pinned_hash }}"
+        else
+          npx --yes @actionguard/cli inspect "${{ inputs.target_url }}"
+        fi
