@@ -4,6 +4,25 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-20",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "actionguard.ai",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.actionguard.ai",
+      "custom_domain": true
+    },
+    {
+      "pattern": "action-guard.com",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.action-guard.com",
+      "custom_domain": true
+    }
+  ],
   "d1_databases": [
     {
       "binding": "actionguard_db",

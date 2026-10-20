@@ -9,6 +9,20 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', cors());
 
+// Canonical 301 Redirect for www and companion domains
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  if (
+    url.hostname === 'www.actionguard.ai' ||
+    url.hostname === 'action-guard.com' ||
+    url.hostname === 'www.action-guard.com'
+  ) {
+    url.hostname = 'actionguard.ai';
+    return c.redirect(url.toString(), 301);
+  }
+  return next();
+});
+
 // SSR Web UI: Homepage
 app.get('/', (c) => {
   return c.html(renderHomepageHtml());
