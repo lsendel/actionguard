@@ -1,0 +1,41 @@
+{
+  "name": "ActionGuard Protocol Inspector Agent",
+  "description": "Evidence-first protocol inspection and drift detection for AI agents.",
+  "version": "1.0.0",
+  "documentationUrl": "https://actionguard.ai/docs",
+  "provider": {
+    "organization": "ActionGuard Protocol Inspector Agent",
+    "url": "https://actionguard.ai"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://actionguard.ai/a2a/v1",
+      "protocolBinding": "JSONRPC",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false,
+    "extendedAgentCard": false
+  },
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
+  "skills": [
+    {
+      "id": "inspect_agent",
+      "name": "Inspect Agent Endpoint",
+      "description": "Executes 5-stage protocol and security audit against target endpoint.",
+      "tags": [
+        "general"
+      ],
+      "examples": [
+        "Inspect https://example.com/mcp"
+      ]
+    }
+  ]
+}

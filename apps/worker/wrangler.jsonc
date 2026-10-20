@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "actionguard-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "actionguard_db",
+      "database_name": "actionguard-db",
+      "database_id": "d241aaf2-00ff-4ccf-ba4a-23a5347f0788",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "actionguard_evidence",
+      "bucket_name": "actionguard-evidence"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@actionguard/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "actionguard": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b && chmod +x ./dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@actionguard/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.4",
+    "typescript": "^5.7.3"
+  }
+}

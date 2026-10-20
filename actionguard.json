@@ -1,0 +1,46 @@
+{
+  "$schema": "https://actionguard.ai/schemas/v1/manifest.schema.json",
+  "name": "com.actionguard/inspector",
+  "title": "ActionGuard Protocol Inspector Agent",
+  "description": "Evidence-first protocol inspection and drift detection for AI agents.",
+  "version": "1.0.0",
+  "domain": "actionguard.ai",
+  "endpoints": [
+    {
+      "protocol": "mcp",
+      "transport": "streamable-http",
+      "url": "https://actionguard.ai/mcp"
+    },
+    {
+      "protocol": "a2a",
+      "binding": "JSONRPC",
+      "url": "https://actionguard.ai/a2a/v1"
+    }
+  ],
+  "capabilities": {
+    "tools": [
+      {
+        "id": "inspect_agent",
+        "name": "Inspect Agent Endpoint",
+        "description": "Executes 5-stage protocol and security audit against target endpoint.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": { "type": "string", "description": "Target endpoint URL" }
+          },
+          "required": ["url"]
+        },
+        "examples": ["Inspect https://example.com/mcp"]
+      }
+    ]
+  },
+  "dnsAid": {
+    "enabled": true,
+    "agentPrefix": "inspector",
+    "zone": "actionguard.ai"
+  }
+}
