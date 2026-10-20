@@ -9,6 +9,7 @@ import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { renderBadgeSvg } from './badges.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
+import { handleProxyRequest } from './proxy.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
 import { renderServerProfileHtml } from './server-profile.js';
 import type { Env } from './types.js';
@@ -607,6 +608,10 @@ app.post('/v1/routing/resolve', async (c) => {
     matches: services.results || [],
   });
 });
+
+// AI Agent Zero-Trust Runtime Security Proxy ("Cloudflare for MCP")
+app.all('/v1/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
+app.all('/v1/routing/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
 
 // Export default object with fetch and scheduled cron handler
 export default {

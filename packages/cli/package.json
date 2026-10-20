@@ -1,9 +1,32 @@
 {
   "name": "@actionguard/cli",
   "version": "0.1.0",
+  "description": "Official CLI for ActionGuard.ai — Live protocol audits, manifest compilation, and CI/CD schema drift gates for AI agents and MCP servers.",
   "type": "module",
   "bin": {
     "actionguard": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "actionguard",
+    "mcp",
+    "cli",
+    "ai-agents",
+    "schema-drift",
+    "security-gate",
+    "prompt-injection"
+  ],
+  "author": "ActionGuard.ai",
+  "license": "MIT",
+  "homepage": "https://actionguard.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/actionguard/actionguard.git"
   },
   "scripts": {
     "build": "tsc -b && chmod +x ./dist/index.js",

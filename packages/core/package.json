@@ -1,6 +1,7 @@
 {
   "name": "@actionguard/core",
   "version": "0.1.0",
+  "description": "Core dual-hash cryptographic verification, schema drift detection, linters, and manifest compilers for MCP servers and AI agents.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +10,28 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai-agents",
+    "schema-drift",
+    "a2a",
+    "dns-aid",
+    "verification"
+  ],
+  "author": "ActionGuard.ai",
+  "license": "MIT",
+  "homepage": "https://actionguard.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/actionguard/actionguard.git"
   },
   "scripts": {
     "build": "tsc -b",
