@@ -767,7 +767,7 @@ export function renderIndexHtml(services: Array<{
                     return `
             <tr>
               <td>
-                <div class="service-name">${escapeHtml(s.display_name)}</div>
+                <a href="/servers/${encodeURIComponent(s.slug)}" class="service-name">${escapeHtml(s.display_name)}</a>
                 <div class="service-domain">${escapeHtml(s.canonical_domain)}</div>
               </td>
               <td>
@@ -777,10 +777,12 @@ export function renderIndexHtml(services: Array<{
                 <span style="font-size:12px;color:#93c5fd;">${escapeHtml(s.verification_tier)}</span>
               </td>
               <td>
-                <img src="/badge/${encodeURIComponent(s.slug)}.svg" alt="Badge" height="20" />
+                <a href="/servers/${encodeURIComponent(s.slug)}">
+                  <img src="/badge/${encodeURIComponent(s.slug)}.svg" alt="Badge" height="20" />
+                </a>
               </td>
               <td>
-                <a href="/inspect?url=https://${encodeURIComponent(s.canonical_domain)}" style="color:#60a5fa;text-decoration:none;font-size:13px;font-weight:600;">Re-inspect &rarr;</a>
+                <a href="/servers/${encodeURIComponent(s.slug)}" style="color:#60a5fa;text-decoration:none;font-size:13px;font-weight:600;">View Profile &rarr;</a>
               </td>
             </tr>
           `;
@@ -793,6 +795,12 @@ export function renderIndexHtml(services: Array<{
   </main>
 
   <footer>
+    <div style="margin-bottom:8px;">
+      <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;margin:0 8px;">MCP Schema Drift</a> &bull;
+      <a href="/docs/a2a-agent-card-generator" style="color:var(--text-muted);text-decoration:none;margin:0 8px;">A2A Agent Card Guide</a> &bull;
+      <a href="/docs/dns-aid-setup" style="color:var(--text-muted);text-decoration:none;margin:0 8px;">DNS-AID Setup</a> &bull;
+      <a href="/sitemap.xml" style="color:var(--text-muted);text-decoration:none;margin:0 8px;">Sitemap</a>
+    </div>
     ActionGuard.ai &bull; Continuous Probing across 300+ Cloudflare Edge Locations
   </footer>
 </body>

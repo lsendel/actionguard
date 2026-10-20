@@ -7,6 +7,9 @@ import {
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { renderBadgeSvg } from './badges.js';
+import { GUIDES, renderGuideHtml } from './guides.js';
+import { renderRobotsTxt, renderSitemapXml } from './seo.js';
+import { renderServerProfileHtml } from './server-profile.js';
 import type { Env } from './types.js';
 import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
 
@@ -81,6 +84,95 @@ app.get('/index', async (c) => {
 
 // Alias /leaderboard to /index
 app.get('/leaderboard', (c) => c.redirect('/index', 301));
+
+// Technical SEO: robots.txt
+app.get('/robots.txt', (c) => {
+  c.header('Content-Type', 'text/plain; charset=utf-8');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.text(renderRobotsTxt());
+});
+
+// Technical SEO: dynamic sitemap.xml
+app.get('/sitemap.xml', async (c) => {
+  let services: Array<{ slug: string; created_at: string }> = [];
+  if (c.env.actionguard_db) {
+    try {
+      const rows = await c.env.actionguard_db
+        .prepare(`SELECT slug, created_at FROM services LIMIT 500`)
+        .all<{ slug: string; created_at: string }>();
+      services = rows.results || [];
+    } catch {
+      // Fallback
+    }
+  }
+  c.header('Content-Type', 'application/xml; charset=utf-8');
+  c.header('Cache-Control', 'public, max-age=3600');
+  return c.body(renderSitemapXml(services));
+});
+
+// Programmatic SEO: Server Profile Page (/servers/:slug)
+app.get('/servers/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  if (!c.env.actionguard_db) {
+    return c.text('Database unavailable', 500);
+  }
+
+  const service = await c.env.actionguard_db
+    .prepare(`SELECT * FROM services WHERE slug = ?`)
+    .bind(slug)
+    .first<{
+      slug: string;
+      display_name: string;
+      canonical_domain: string;
+      repository_url?: string;
+      verification_tier: string;
+      overall_grade: string;
+      created_at: string;
+    }>();
+
+  if (!service) {
+    return c.html(
+      `<div style="font-family:sans-serif;padding:40px;color:#ef4444;background:#090d16;min-height:100vh;">
+        <h2>Server Not Found</h2>
+        <p>No verified profile found for "${slug}".</p>
+        <p><a href="/" style="color:#60a5fa;">&larr; Inspect It Now</a></p>
+      </div>`,
+      404
+    );
+  }
+
+  const endpoints = await c.env.actionguard_db
+    .prepare(
+      `SELECT * FROM service_endpoints WHERE service_id = (SELECT id FROM services WHERE slug = ?)`
+    )
+    .bind(slug)
+    .all<{
+      protocol: string;
+      url: string;
+      last_status: string;
+      last_latency_ms: number;
+      current_schema_sha256?: string;
+      current_descriptions_sha256?: string;
+      last_checked_at?: string;
+    }>();
+
+  return c.html(
+    renderServerProfileHtml({
+      ...service,
+      endpoints: endpoints.results || [],
+    })
+  );
+});
+
+// High-Intent Developer Protocol Guides (/docs/:slug)
+app.get('/docs/:slug', (c) => {
+  const slug = c.req.param('slug');
+  const guide = GUIDES[slug];
+  if (!guide) {
+    return c.redirect('/index', 301);
+  }
+  return c.html(renderGuideHtml(guide));
+});
 
 // Sample Mock Tools for Interactive Demo
 const DEMO_SAMPLE_TOOLS: McpToolDefinition[] = [
