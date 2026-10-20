@@ -6,6 +6,7 @@ import {
 } from '@actionguard/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { renderBadgeSvg } from './badges.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
@@ -261,6 +262,90 @@ app.post('/api/verify/check', async (c) => {
   return c.json({
     verified: false,
     message: `Verification token not found on ${cleanDomain}. Ensure the TXT record "actionguard-verification=${token}" is published.`,
+  });
+});
+
+// Watchlist Subscription API: Alert notifications for schema drift and downtime
+app.post('/api/watchlist/subscribe', async (c) => {
+  const body = await c.req
+    .json<{ service_slug?: string; email?: string; webhook_url?: string }>()
+    .catch(() => null);
+  if (!body || !body.service_slug || !body.email) {
+    return c.json({ error: 'Service slug and valid email address are required' }, 400);
+  }
+
+  const email = body.email.trim().toLowerCase();
+  if (!email.includes('@') || email.length < 5) {
+    return c.json({ error: 'Please enter a valid email address' }, 400);
+  }
+
+  if (!c.env.actionguard_db) {
+    return c.json({ error: 'Database service unavailable' }, 500);
+  }
+
+  const service = await c.env.actionguard_db
+    .prepare(`SELECT id, display_name, canonical_domain, slug FROM services WHERE slug = ?`)
+    .bind(body.service_slug)
+    .first<{ id: string; display_name: string; canonical_domain: string; slug: string }>();
+
+  if (!service) {
+    return c.json({ error: 'Service not found in ActionGuard catalog' }, 404);
+  }
+
+  // Find or create subscriber organization
+  const subscriberOrgId = `org_${Math.random().toString(36).substring(2, 10)}`;
+  await c.env.actionguard_db
+    .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .bind(subscriberOrgId, email, email.replace(/[^a-z0-9]/g, '_'))
+    .run();
+
+  const watchlistId = `watch_${Math.random().toString(36).substring(2, 10)}`;
+
+  // Find current schema hash
+  const endpoint = await c.env.actionguard_db
+    .prepare(
+      `SELECT current_schema_sha256, current_descriptions_sha256 FROM service_endpoints WHERE service_id = ?`
+    )
+    .bind(service.id)
+    .first<{ current_schema_sha256: string; current_descriptions_sha256: string }>();
+
+  await c.env.actionguard_db
+    .prepare(
+      `INSERT INTO watchlist_items (id, subscriber_org_id, service_id, pinned_schema_sha256, pinned_descriptions_sha256, alert_webhook_url, notify_email)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      watchlistId,
+      subscriberOrgId,
+      service.id,
+      endpoint?.current_schema_sha256 || null,
+      endpoint?.current_descriptions_sha256 || null,
+      body.webhook_url || null,
+      email
+    )
+    .run();
+
+  // Send Welcome Confirmation Email if Resend API key is configured
+  if (c.env.RESEND_API_KEY) {
+    c.executionCtx.waitUntil(
+      sendEmailViaResend({
+        apiKey: c.env.RESEND_API_KEY,
+        from: c.env.ALERT_FROM_EMAIL || 'ActionGuard Drift Monitor <alerts@where.care>',
+        to: email,
+        subject: `[ActionGuard] Active: Monitoring ${service.display_name}`,
+        html: renderWelcomeEmailHtml({
+          serviceName: service.display_name,
+          domain: service.canonical_domain,
+          slug: service.slug,
+          pinnedHash: endpoint?.current_schema_sha256,
+        }),
+      })
+    );
+  }
+
+  return c.json({
+    success: true,
+    message: `Active! You are now monitoring ${service.display_name} for breaking drift and outages.`,
   });
 });
 
@@ -589,6 +674,31 @@ export default {
                     })
                   )
                   .run();
+
+                // Dispatch real-time alerts to watchlist subscribers via Resend and Webhooks
+                const svc = await env.actionguard_db
+                  .prepare(
+                    `SELECT display_name, canonical_domain, slug FROM services WHERE id = ?`
+                  )
+                  .bind(ep.service_id)
+                  .first<{ display_name: string; canonical_domain: string; slug: string }>();
+
+                if (svc) {
+                  ctx.waitUntil(
+                    dispatchDriftAlerts(
+                      env,
+                      ep.service_id,
+                      svc.display_name,
+                      svc.canonical_domain,
+                      svc.slug,
+                      changeType,
+                      severity,
+                      ep.current_schema_sha256,
+                      report.hashes.schema_sha256,
+                      `https://actionguard.ai/servers/${svc.slug}`
+                    )
+                  );
+                }
               }
 
               // Update endpoint record

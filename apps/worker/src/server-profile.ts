@@ -24,9 +24,15 @@ export function renderServerProfileHtml(service: {
   else if (service.overall_grade === 'D' || service.overall_grade === 'F') gradeColor = '#ef4444';
 
   const badgeMarkdown = `[![ActionGuard Verified](https://actionguard.ai/badge/${service.slug}.svg)](https://actionguard.ai/servers/${service.slug})`;
-  const jsonLd = generateServerJsonLd(service);
-
   const ep = service.endpoints && service.endpoints.length > 0 ? service.endpoints[0] : undefined;
+  const pinnedHash = ep?.current_schema_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const targetUrl = ep?.url || `https://${service.canonical_domain}`;
+  const githubActionYaml = `- name: Verify Upstream MCP Tools
+  uses: actionguard/action@v1
+  with:
+    target_url: '${targetUrl}'
+    pinned_hash: '${pinnedHash}'`;
+  const jsonLd = generateServerJsonLd(service);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -249,22 +255,47 @@ export function renderServerProfileHtml(service: {
         <img src="/badge/${encodeURIComponent(service.slug)}.svg" alt="Live Badge" height="22" />
         <span style="font-size:13px;color:#fff;font-weight:600;">Embed Live Status in GitHub README</span>
       </div>
-      <button class="copy-btn" onclick="copyBadgeMarkdown(this)">Copy Badge Markdown</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="copy-btn" onclick="copyBadgeMarkdown(this)">Copy Badge Markdown</button>
+        <button class="copy-btn" style="background:#1e293b;border:1px solid #3b82f6;color:#93c5fd;" onclick="copyGithubAction(this)">Copy CI Action YAML</button>
+      </div>
+    </div>
+
+    <!-- Real-Time Drift Alerts Watchlist Card -->
+    <div style="background:linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(17, 24, 39, 0.9)); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 24px; margin-bottom: 28px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+        <div>
+          <h3 style="font-size:17px;font-weight:700;color:#fff;margin-bottom:6px;display:flex;align-items:center;gap:8px;">
+            <span>🔔</span> Get Schema Drift &amp; Downtime Alerts
+          </h3>
+          <p style="font-size:13px;color:var(--text-muted);line-height:1.5;">
+            ActionGuard edge workers probe this endpoint every 15 minutes. Receive an instant alert the moment upstream tool parameters change or descriptions mutate.
+          </p>
+        </div>
+      </div>
+      <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+        <input type="email" id="subscribeEmail" placeholder="developer@yourcompany.com" style="flex:1;min-width:240px;background:#020617;border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;" />
+        <button onclick="subscribeAlerts(this)" style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;">Subscribe to Alerts &rarr;</button>
+      </div>
+      <div id="subscribeStatus" style="margin-top:10px;font-size:13px;display:none;"></div>
     </div>
 
     <div class="section-title">Cryptographic Contract Hashes</div>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Orchestrators pin these hashes to prevent silent tool poisoning and breaking API regressions:</p>
     
     <div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">PINNED SCHEMA SHA-256</div>
-    <div class="hash-block">${ep?.current_schema_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}</div>
+    <div class="hash-block">${pinnedHash}</div>
 
     <div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">PINNED DESCRIPTIONS SHA-256</div>
     <div class="hash-block">${ep?.current_descriptions_sha256 || 'b5a2c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}</div>
 
     <div style="margin-top: 36px; padding: 24px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; text-align: center;">
       <h3 style="font-size:18px;margin-bottom:8px;">Are you the maintainer of ${escapeHtml(service.canonical_domain)}?</h3>
-      <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">Run an on-demand 5-stage edge audit or claim domain ownership with DNS-AID.</p>
-      <a href="/inspect?url=https://${encodeURIComponent(service.canonical_domain)}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Run Full 5-Stage Audit &rarr;</a>
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;">Claim domain ownership to prevent profile squatting and unlock the prestigious Gold Verified badge.</p>
+      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+        <a href="/verify?domain=${encodeURIComponent(service.canonical_domain)}" style="display:inline-block;background:linear-gradient(135deg, #d97706, #f59e0b);color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:700;text-decoration:none;">Claim &amp; Verify Domain &rarr;</a>
+        <a href="/inspect?url=${encodeURIComponent(targetUrl)}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 22px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">Run Full 5-Stage Audit &rarr;</a>
+      </div>
     </div>
   </main>
 
@@ -284,6 +315,67 @@ export function renderServerProfileHtml(service: {
           btn.style.background = '';
         }, 2000);
       });
+    }
+
+    function copyGithubAction(btn) {
+      const text = ${JSON.stringify(githubActionYaml)};
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerText;
+        btn.innerText = 'YAML Copied!';
+        btn.style.background = '#10b981';
+        setTimeout(() => {
+          btn.innerText = orig;
+          btn.style.background = '';
+        }, 2000);
+      });
+    }
+
+    async function subscribeAlerts(btn) {
+      const input = document.getElementById('subscribeEmail');
+      const status = document.getElementById('subscribeStatus');
+      const email = input.value.trim();
+
+      if (!email || !email.includes('@')) {
+        status.style.display = 'block';
+        status.style.color = '#f87171';
+        status.innerText = 'Please enter a valid email address.';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = 'Subscribing...';
+
+      try {
+        const res = await fetch('/api/watchlist/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            service_slug: ${JSON.stringify(service.slug)},
+            email: email
+          })
+        });
+
+        const data = await res.json();
+        status.style.display = 'block';
+        if (res.ok && data.success) {
+          status.style.color = '#34d399';
+          status.innerHTML = '✔ ' + (data.message || 'Subscribed! You will receive drift and downtime alerts.');
+          input.value = '';
+          btn.innerText = 'Subscribed!';
+          btn.style.background = '#059669';
+        } else {
+          status.style.color = '#f87171';
+          status.innerText = data.error || 'Failed to subscribe. Please try again.';
+          btn.disabled = false;
+          btn.innerText = 'Subscribe to Alerts →';
+        }
+      } catch (err) {
+        status.style.display = 'block';
+        status.style.color = '#f87171';
+        status.innerText = 'Network error: ' + err.message;
+        btn.disabled = false;
+        btn.innerText = 'Subscribe to Alerts →';
+      }
     }
   </script>
 </body>
