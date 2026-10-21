@@ -265,7 +265,7 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
       env.actionguard_db
         .prepare(
           `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, overall_grade, verification_tier)
-           VALUES (?, ?, ?, ?, ?, ?, 'A+', 'Community Verified')
+           VALUES (?, ?, ?, ?, ?, ?, 'Pending', 'Unverified (curated listing)')
            ON CONFLICT(slug) DO UPDATE SET
              display_name = excluded.display_name,
              canonical_domain = excluded.canonical_domain,
@@ -275,12 +275,10 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
       env.actionguard_db
         .prepare(
           `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at)
-           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'up', 125, datetime('now'))
+           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'unknown', NULL, NULL)
            ON CONFLICT(id) DO UPDATE SET
              current_schema_sha256 = excluded.current_schema_sha256,
-             current_descriptions_sha256 = excluded.current_descriptions_sha256,
-             last_status = 'up',
-             last_checked_at = datetime('now')`,
+             current_descriptions_sha256 = excluded.current_descriptions_sha256`,
         )
         .bind(endpointId, serviceId, url, hashes.schema_sha256, hashes.descriptions_sha256),
     ]);
@@ -288,9 +286,13 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
     newSlugs.push(s.slug);
   }
 
+  const countRow = await env.actionguard_db
+    .prepare('SELECT COUNT(*) as count FROM services')
+    .first<{ count: number }>();
+
   return {
     synced: CRAWLED_SERVERS.length,
-    total: 28 + CRAWLED_SERVERS.length,
+    total: countRow?.count ?? CRAWLED_SERVERS.length,
     newSlugs,
   };
 }

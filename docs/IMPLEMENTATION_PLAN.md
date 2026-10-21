@@ -109,7 +109,7 @@ Build `apps/worker` to serve the web inspector, public API, badges, and storage 
 ### 3.2 Core HTTP Routes (Hono on Cloudflare Workers)
 - `POST /api/inspect`: Runs the 5-stage live inspector against a submitted URL/domain, persists snapshot to D1/R2, and returns the report JSON + permalink.
 - `GET /api/reports/:id`: Returns the stored inspection report and generated artifacts.
-- `GET /badge/:slug.svg`: Ultra-fast (<50ms edge-cached) dynamic SVG badge showing verification status, grade, and 30d uptime (e.g., `ActionGuard | Verified A+ • 99.98%`).
+- `GET /badge/:slug.svg`: Ultra-fast (<50ms edge-cached) dynamic SVG badge showing verification status and grade (e.g., `ActionGuard | A+` or `ActionGuard | ⭐ A+ • Domain Owner`).
 - `GET /` & `GET /reports/:id`: Server-rendered "SSL Labs for Agents" web interface with live URL input, grade breakdown, drift diff viewer, and one-click copy for generated `agent-card.json`, `server.json`, and DNS-AID records.
 
 ---

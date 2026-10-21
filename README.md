@@ -7,15 +7,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Edge: Cloudflare](https://img.shields.io/badge/Edge-Cloudflare%20Workers-orange.svg)](https://workers.cloudflare.com)
 
-> **Verification, Reliability Monitoring, and Schema Drift Detection for the Agentic Web.**  
-> *"The SSL Labs + Datadog + Snyk for AI Agents & MCP Servers."*
+> **Drift and poisoning detection for MCP servers.**  
+> *"SSL Labs for MCP servers. Know when your tools change, not just when they go down."*  
+> Diff detection for MCP tools: catch silent schema drift and poisoned tool descriptions before your autonomous agents run them.
 
 ---
 
 ## Live Production Services
 
 * 🌐 **Web Inspector & Diagnostic Engine:** [**`https://actionguard.ai/`**](https://actionguard.ai/)
-* 📊 **Public Reliability Index (36 Top Servers):** [**`https://actionguard.ai/index`**](https://actionguard.ai/index)
+* 📊 **Public Reliability Index:** [**`https://actionguard.ai/index`**](https://actionguard.ai/index)
 * 🎮 **Interactive Drift & Prompt Poisoning Simulator:** [**`https://actionguard.ai/playground`**](https://actionguard.ai/playground)
 * ⭐ **Self-Serve Domain Ownership Portal:** [**`https://actionguard.ai/verify`**](https://actionguard.ai/verify)
 * 💳 **Developer API Keys & Pricing:** [**`https://actionguard.ai/pricing`**](https://actionguard.ai/pricing)

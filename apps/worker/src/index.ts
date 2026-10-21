@@ -1,6 +1,8 @@
 import {
   type InspectionReport,
   type McpToolDefinition,
+  type UptimeStats,
+  calculateUptimeStats,
   computeDualHash,
   diffToolSets,
   lintPromptInjection,
@@ -56,24 +58,38 @@ app.get('/index', async (c) => {
     overall_grade: string;
     verification_tier: string;
     created_at: string;
+    last_checked_at?: string;
   }> = [];
+  let totalCount = 0;
 
   if (c.env.actionguard_db) {
     try {
+      const countRes = await c.env.actionguard_db
+        .prepare('SELECT COUNT(*) as total FROM services')
+        .first<{ total: number }>();
+      totalCount = countRes?.total || 0;
+
       const rows = await c.env.actionguard_db
         .prepare(
-          `SELECT slug, display_name, canonical_domain, overall_grade, verification_tier, created_at
-           FROM services
+          `SELECT s.slug, s.display_name, s.canonical_domain, s.overall_grade, s.verification_tier, s.created_at,
+                  e.last_checked_at, e.last_status
+           FROM services s
+           LEFT JOIN service_endpoints e ON s.id = e.service_id
+           GROUP BY s.id
            ORDER BY 
-             CASE overall_grade
+             CASE s.overall_grade
                WHEN 'A+' THEN 1
                WHEN 'A' THEN 2
                WHEN 'B' THEN 3
                WHEN 'C' THEN 4
-               ELSE 5
+               WHEN 'D' THEN 5
+               WHEN 'Pending' THEN 6
+               WHEN 'Unreachable' THEN 7
+               WHEN 'F' THEN 8
+               ELSE 9
              END,
-             created_at DESC
-           LIMIT 50`,
+             s.created_at DESC
+           LIMIT 100`,
         )
         .all<{
           slug: string;
@@ -82,15 +98,32 @@ app.get('/index', async (c) => {
           overall_grade: string;
           verification_tier: string;
           created_at: string;
+          last_checked_at?: string;
+          last_status?: string;
         }>();
 
-      services = rows.results || [];
+      services = (rows.results || []).map((row) => {
+        let grade = row.overall_grade || 'Pending';
+        if (row.last_status === 'down' || grade === 'F') {
+          grade = 'Unreachable';
+        }
+        return {
+          slug: row.slug,
+          display_name: row.display_name,
+          canonical_domain: row.canonical_domain,
+          overall_grade: grade,
+          verification_tier: row.verification_tier,
+          created_at: row.created_at,
+          last_checked_at: row.last_checked_at,
+        };
+      });
+      if (totalCount === 0) totalCount = services.length;
     } catch {
       // Fallback if table is empty or error
     }
   }
 
-  return c.html(renderIndexHtml(services));
+  return c.html(renderIndexHtml(services, totalCount));
 });
 
 // Alias /leaderboard to /index
@@ -129,9 +162,10 @@ app.get('/servers/:slug', async (c) => {
   }
 
   const service = await c.env.actionguard_db
-    .prepare('SELECT * FROM services WHERE slug = ?')
-    .bind(slug)
+    .prepare('SELECT * FROM services WHERE slug = ? OR canonical_domain = ? LIMIT 1')
+    .bind(slug, slug)
     .first<{
+      id: string;
       slug: string;
       display_name: string;
       canonical_domain: string;
@@ -152,12 +186,16 @@ app.get('/servers/:slug', async (c) => {
     );
   }
 
+  // Canonical redirect if accessed via domain or alias instead of primary slug (One domain, one profile)
+  if (service.slug !== slug) {
+    return c.redirect(`/servers/${encodeURIComponent(service.slug)}`, 301);
+  }
+
   const endpoints = await c.env.actionguard_db
-    .prepare(
-      'SELECT * FROM service_endpoints WHERE service_id = (SELECT id FROM services WHERE slug = ?)',
-    )
-    .bind(slug)
+    .prepare('SELECT * FROM service_endpoints WHERE service_id = ?')
+    .bind(service.id)
     .all<{
+      id: string;
       protocol: string;
       url: string;
       last_status: string;
@@ -167,10 +205,46 @@ app.get('/servers/:slug', async (c) => {
       last_checked_at?: string;
     }>();
 
+  const endpointList = endpoints.results || [];
+
+  // Query probe history from probes table
+  let uptimeStats: UptimeStats | undefined;
+  if (endpointList.length > 0) {
+    try {
+      const probeRows = await c.env.actionguard_db
+        .prepare(
+          `SELECT probed_at, status, latency_ms, grade
+           FROM probes
+           WHERE endpoint_id IN (${endpointList.map(() => '?').join(',')})
+           ORDER BY probed_at DESC
+           LIMIT 100`,
+        )
+        .bind(...endpointList.map((e) => e.id))
+        .all<{
+          probed_at: string;
+          status: 'up' | 'down' | 'degraded';
+          latency_ms?: number;
+          grade?: string;
+        }>();
+
+      if (probeRows.results && probeRows.results.length > 0) {
+        uptimeStats = calculateUptimeStats(probeRows.results);
+      }
+    } catch {
+      // probes table not yet populated or query error
+    }
+  }
+
+  // If no probes exist yet, initialize uptimeStats with 0 probes
+  if (!uptimeStats) {
+    uptimeStats = calculateUptimeStats([], { now: new Date() });
+  }
+
   return c.html(
     renderServerProfileHtml({
       ...service,
-      endpoints: endpoints.results || [],
+      endpoints: endpointList,
+      uptimeStats,
     }),
   );
 });
@@ -519,47 +593,135 @@ app.post('/api/watchlist/subscribe', async (c) => {
   });
 });
 
-// Sample Mock Tools for Interactive Demo
-const DEMO_SAMPLE_TOOLS: McpToolDefinition[] = [
-  {
-    name: 'query_analytics',
-    description: 'Executes verified analytical queries against the customer data warehouse.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        metric: {
-          type: 'string',
-          enum: ['mrr', 'churn', 'retention', 'dau'],
-          description: 'Key business performance indicator to calculate',
-        },
-        timeframe: {
-          type: 'string',
-          description: 'Timeframe filter (e.g. "30d", "90d", "ytd")',
-        },
-      },
-      required: ['metric'],
-    },
-    annotations: {
-      readOnlyHint: true,
-      idempotentHint: true,
-    },
-  },
-  {
-    name: 'export_report',
-    description: 'Generates a signed CSV or PDF artifact of aggregate metrics.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        report_id: { type: 'string', description: 'Unique report identifier' },
-        format: { type: 'string', enum: ['csv', 'pdf'] },
-      },
-      required: ['report_id'],
-    },
-    annotations: {
-      readOnlyHint: true,
-    },
-  },
-];
+// Shared helper to enforce One domain, one profile and track real probe results
+async function persistInspectionReport(
+  db: D1Database,
+  report: InspectionReport,
+): Promise<{ serviceId: string; slug: string }> {
+  const cleanDomain = report.targetDomain.toLowerCase();
+
+  // Find existing service by canonical_domain or slug
+  const existing = await db
+    .prepare(
+      'SELECT id, org_id, slug, verification_tier, overall_grade FROM services WHERE LOWER(canonical_domain) = ? OR slug = ? LIMIT 1',
+    )
+    .bind(cleanDomain, cleanDomain)
+    .first<{
+      id: string;
+      org_id: string;
+      slug: string;
+      verification_tier: string;
+      overall_grade: string;
+    }>();
+
+  const orgId = existing?.org_id || `org_pub_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const serviceId = existing?.id || `srv_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const slug = existing?.slug || cleanDomain;
+  const endpointId = `ep_${serviceId.replace(/^srv_/, '')}`;
+
+  const isUp = report.score.grade !== 'F';
+  const status = isUp ? 'up' : 'down';
+  const gradeToStore = isUp ? report.score.grade : 'Unreachable';
+
+  const latencyFinding = report.findings.find(
+    (f) => f.id === 'transport_latency_fast' || f.id === 'transport_latency_standard',
+  );
+  const latencyMs =
+    typeof latencyFinding?.details === 'number' ? latencyFinding.details : isUp ? 100 : null;
+
+  const schemaHash = report.hashes.schema_sha256 || null;
+  const descriptionsHash = report.hashes.descriptions_sha256 || null;
+  const probeId = `prb_${Math.random().toString(36).substring(2, 10)}`;
+
+  if (!existing) {
+    await db.batch([
+      db
+        .prepare('INSERT OR IGNORE INTO organizations (id, name, slug, tier) VALUES (?, ?, ?, ?)')
+        .bind(orgId, report.targetDomain, slug, 'community'),
+      db
+        .prepare(
+          `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade, verification_tier)
+           VALUES (?, ?, ?, ?, ?, ?, 'Unverified (curated listing)')`,
+        )
+        .bind(serviceId, orgId, slug, report.targetDomain, cleanDomain, gradeToStore),
+      db
+        .prepare(
+          `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at)
+           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+             current_schema_sha256 = excluded.current_schema_sha256,
+             current_descriptions_sha256 = excluded.current_descriptions_sha256,
+             last_status = excluded.last_status,
+             last_latency_ms = excluded.last_latency_ms,
+             last_checked_at = datetime('now')`,
+        )
+        .bind(
+          endpointId,
+          serviceId,
+          report.targetUrl,
+          schemaHash,
+          descriptionsHash,
+          status,
+          latencyMs,
+        ),
+      db
+        .prepare(
+          `INSERT INTO probes (id, endpoint_id, probed_at, status, latency_ms, grade, findings_json)
+           VALUES (?, ?, datetime('now'), ?, ?, ?, ?)`,
+        )
+        .bind(
+          probeId,
+          endpointId,
+          status,
+          latencyMs,
+          gradeToStore,
+          JSON.stringify(report.findings),
+        ),
+    ]);
+  } else {
+    // Preserve verification_tier; never raise or lower tier on inspection
+    await db.batch([
+      db
+        .prepare('UPDATE services SET overall_grade = ? WHERE id = ?')
+        .bind(gradeToStore, existing.id),
+      db
+        .prepare(
+          `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at)
+           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(id) DO UPDATE SET
+             current_schema_sha256 = excluded.current_schema_sha256,
+             current_descriptions_sha256 = excluded.current_descriptions_sha256,
+             last_status = excluded.last_status,
+             last_latency_ms = excluded.last_latency_ms,
+             last_checked_at = datetime('now')`,
+        )
+        .bind(
+          endpointId,
+          existing.id,
+          report.targetUrl,
+          schemaHash,
+          descriptionsHash,
+          status,
+          latencyMs,
+        ),
+      db
+        .prepare(
+          `INSERT INTO probes (id, endpoint_id, probed_at, status, latency_ms, grade, findings_json)
+           VALUES (?, ?, datetime('now'), ?, ?, ?, ?)`,
+        )
+        .bind(
+          probeId,
+          endpointId,
+          status,
+          latencyMs,
+          gradeToStore,
+          JSON.stringify(report.findings),
+        ),
+    ]);
+  }
+
+  return { serviceId, slug };
+}
 
 // SSR Web UI: Run inspection from query param
 app.get('/inspect', async (c) => {
@@ -567,14 +729,7 @@ app.get('/inspect', async (c) => {
   if (!url) return c.redirect('/');
 
   try {
-    const isDemoSample =
-      url.includes('demo.actionguard.ai') ||
-      url.includes('analytics.where.care') ||
-      url.includes('api.github.com/mcp');
-
-    const report = await runInspection(url, {
-      mockTools: isDemoSample ? DEMO_SAMPLE_TOOLS : undefined,
-    });
+    const report = await runInspection(url);
 
     // Save report to R2 asynchronously if bucket is bound
     if (c.env.actionguard_evidence) {
@@ -589,30 +744,7 @@ app.get('/inspect', async (c) => {
 
     // Persist to D1
     if (c.env.actionguard_db) {
-      const orgId = `org_pub_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const serviceId = `srv_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-      c.executionCtx.waitUntil(
-        c.env.actionguard_db.batch([
-          c.env.actionguard_db
-            .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
-            .bind(orgId, report.targetDomain, report.targetDomain),
-          c.env.actionguard_db
-            .prepare(
-              `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade)
-               VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`,
-            )
-            .bind(
-              serviceId,
-              orgId,
-              report.targetDomain,
-              report.targetDomain,
-              report.targetDomain,
-              report.score.grade,
-            ),
-        ]),
-      );
+      c.executionCtx.waitUntil(persistInspectionReport(c.env.actionguard_db, report));
     }
 
     return c.html(renderReportHtml(report));
@@ -637,14 +769,7 @@ app.post('/api/inspect', async (c) => {
   }
 
   try {
-    const isDemoSample =
-      body.url.includes('demo.actionguard.ai') ||
-      body.url.includes('analytics.where.care') ||
-      body.url.includes('api.github.com/mcp');
-
-    const report = await runInspection(body.url, {
-      mockTools: isDemoSample ? DEMO_SAMPLE_TOOLS : undefined,
-    });
+    const report = await runInspection(body.url);
 
     // Persist full report to R2
     if (c.env.actionguard_evidence) {
@@ -657,45 +782,7 @@ app.post('/api/inspect', async (c) => {
 
     // Persist service & endpoint in D1
     if (c.env.actionguard_db) {
-      const orgId = `org_pub_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const serviceId = `srv_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      const endpointId = `ep_${report.targetDomain.replace(/[^a-zA-Z0-9]/g, '_')}_mcp`;
-
-      await c.env.actionguard_db.batch([
-        c.env.actionguard_db
-          .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
-          .bind(orgId, report.targetDomain, report.targetDomain),
-        c.env.actionguard_db
-          .prepare(
-            `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade)
-             VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`,
-          )
-          .bind(
-            serviceId,
-            orgId,
-            report.targetDomain,
-            report.targetDomain,
-            report.targetDomain,
-            report.score.grade,
-          ),
-        c.env.actionguard_db
-          .prepare(
-            `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_checked_at)
-             VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'up', datetime('now'))
-             ON CONFLICT(id) DO UPDATE SET
-               current_schema_sha256 = excluded.current_schema_sha256,
-               current_descriptions_sha256 = excluded.current_descriptions_sha256,
-               last_checked_at = datetime('now')`,
-          )
-          .bind(
-            endpointId,
-            serviceId,
-            report.targetUrl,
-            report.hashes.schema_sha256,
-            report.hashes.descriptions_sha256,
-          ),
-      ]);
+      await persistInspectionReport(c.env.actionguard_db, report);
     }
 
     return c.json(report);
@@ -725,22 +812,40 @@ app.get('/api/reports/:id', async (c) => {
 app.get('/badge/:target', async (c) => {
   const rawTarget = c.req.param('target');
   const slug = rawTarget.replace(/\.svg$/, '');
-  let grade = 'A+';
-  let tier = 'unverified';
+  let grade = 'Pending';
+  let tier = 'Unverified (curated listing)';
   const label = 'ActionGuard';
-  let value = 'Verified';
+  let value = 'Pending';
 
   try {
     if (c.env.actionguard_db) {
       const row = await c.env.actionguard_db
-        .prepare('SELECT overall_grade, verification_tier FROM services WHERE slug = ?')
-        .bind(slug)
-        .first<{ overall_grade: string; verification_tier: string }>();
+        .prepare(
+          `SELECT s.overall_grade, s.verification_tier, e.last_status
+           FROM services s
+           LEFT JOIN service_endpoints e ON s.id = e.service_id
+           WHERE s.slug = ? OR LOWER(s.canonical_domain) = ?
+           LIMIT 1`,
+        )
+        .bind(slug, slug.toLowerCase())
+        .first<{ overall_grade: string; verification_tier: string; last_status?: string }>();
 
-      if (row?.overall_grade) {
-        grade = row.overall_grade;
-        tier = row.verification_tier || 'unverified';
-        value = tier === 'Domain Verified' ? `${grade} • Domain Owner` : `${grade} • Verified`;
+      if (row) {
+        tier = row.verification_tier || 'Unverified (curated listing)';
+        const isDown =
+          row.last_status === 'down' ||
+          row.overall_grade === 'Unreachable' ||
+          row.overall_grade === 'F';
+        if (isDown) {
+          grade = 'Unreachable';
+          value = 'Unreachable';
+        } else if (row.overall_grade && row.overall_grade !== 'Pending') {
+          grade = row.overall_grade;
+          value = tier === 'Domain Verified' ? `${grade} • Domain Owner` : grade;
+        } else {
+          grade = 'Pending';
+          value = 'Pending';
+        }
       }
     }
   } catch {
@@ -763,39 +868,64 @@ app.get('/og/:target', async (c) => {
 
   let title = 'ActionGuard.ai';
   let domain = 'actionguard.ai';
-  let grade = 'A+';
-  let tier = 'Community Verified';
-  let schemaHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
-  let latencyMs = 120;
+  let grade = 'Pending';
+  let tier = 'Unverified (curated listing)';
+  let schemaHash: string | undefined = undefined;
+  let latencyMs: number | null = null;
+  let uptimeStr = 'Collecting data';
 
   try {
     if (c.env.actionguard_db) {
       const row = await c.env.actionguard_db
         .prepare(
-          `SELECT s.display_name, s.canonical_domain, s.overall_grade, s.verification_tier,
-                  e.current_schema_sha256, e.last_latency_ms
+          `SELECT s.id, s.display_name, s.canonical_domain, s.overall_grade, s.verification_tier,
+                  e.id as ep_id, e.current_schema_sha256, e.last_latency_ms, e.last_status
            FROM services s
            LEFT JOIN service_endpoints e ON s.id = e.service_id
-           WHERE s.slug = ? OR s.canonical_domain = ?
+           WHERE s.slug = ? OR LOWER(s.canonical_domain) = ?
            LIMIT 1`,
         )
-        .bind(slug, slug)
+        .bind(slug, slug.toLowerCase())
         .first<{
+          id: string;
           display_name: string;
           canonical_domain: string;
           overall_grade: string;
           verification_tier: string;
+          ep_id?: string;
           current_schema_sha256?: string;
           last_latency_ms?: number;
+          last_status?: string;
         }>();
 
       if (row) {
         title = row.display_name;
         domain = row.canonical_domain;
-        grade = row.overall_grade || 'A+';
-        tier = row.verification_tier || 'Community Verified';
+        tier = row.verification_tier || 'Unverified (curated listing)';
+
+        const isDown =
+          row.last_status === 'down' ||
+          row.overall_grade === 'Unreachable' ||
+          row.overall_grade === 'F';
+        grade = isDown ? 'Unreachable' : row.overall_grade || 'Pending';
+
         if (row.current_schema_sha256) schemaHash = row.current_schema_sha256;
-        if (row.last_latency_ms) latencyMs = row.last_latency_ms;
+        if (row.last_latency_ms && row.last_latency_ms > 0) latencyMs = row.last_latency_ms;
+
+        if (row.ep_id) {
+          const probeRows = await c.env.actionguard_db
+            .prepare(
+              'SELECT probed_at, status, latency_ms FROM probes WHERE endpoint_id = ? ORDER BY probed_at DESC LIMIT 50',
+            )
+            .bind(row.ep_id)
+            .all<{ probed_at: string; status: 'up' | 'down' | 'degraded'; latency_ms?: number }>();
+
+          if (probeRows.results && probeRows.results.length > 0) {
+            const stats = calculateUptimeStats(probeRows.results);
+            uptimeStr = stats.displayUptime;
+            if (stats.medianLatencyMs && latencyMs === null) latencyMs = stats.medianLatencyMs;
+          }
+        }
       }
     }
   } catch {
@@ -809,6 +939,7 @@ app.get('/og/:target', async (c) => {
     tier,
     schemaHash,
     latencyMs,
+    uptimeStr,
   });
 
   return new Response(svg, {
@@ -1124,33 +1255,69 @@ export default {
                 }
               }
 
-              // Update endpoint record
-              await env.actionguard_db
-                .prepare(
-                  `UPDATE service_endpoints
-                   SET current_schema_sha256 = ?,
-                       current_descriptions_sha256 = ?,
-                       last_status = ?,
-                       last_latency_ms = ?,
-                       last_checked_at = datetime('now')
-                   WHERE id = ?`,
-                )
-                .bind(
-                  report.hashes.schema_sha256,
-                  report.hashes.descriptions_sha256,
-                  report.score.grade === 'F' ? 'down' : 'up',
-                  report.findings.find((f) => f.id === 'transport_latency_fast')?.details || 100,
-                  ep.id,
-                )
-                .run();
+              // Update endpoint record and record probe
+              const isUp = report.score.grade !== 'F';
+              const status = isUp ? 'up' : 'down';
+              const gradeToStore = isUp ? report.score.grade : 'Unreachable';
+              const latencyFinding = report.findings.find(
+                (f) => f.id === 'transport_latency_fast' || f.id === 'transport_latency_standard',
+              );
+              const latencyMs =
+                typeof latencyFinding?.details === 'number' ? latencyFinding.details : null;
+
+              await env.actionguard_db.batch([
+                env.actionguard_db
+                  .prepare(
+                    `UPDATE service_endpoints
+                     SET current_schema_sha256 = ?,
+                         current_descriptions_sha256 = ?,
+                         last_status = ?,
+                         last_latency_ms = ?,
+                         last_checked_at = datetime('now')
+                     WHERE id = ?`,
+                  )
+                  .bind(
+                    report.hashes.schema_sha256 || null,
+                    report.hashes.descriptions_sha256 || null,
+                    status,
+                    latencyMs,
+                    ep.id,
+                  ),
+                env.actionguard_db
+                  .prepare('UPDATE services SET overall_grade = ? WHERE id = ?')
+                  .bind(gradeToStore, ep.service_id),
+                env.actionguard_db
+                  .prepare(
+                    `INSERT INTO probes (id, endpoint_id, probed_at, status, latency_ms, grade, findings_json)
+                     VALUES (?, ?, datetime('now'), ?, ?, ?, ?)`,
+                  )
+                  .bind(
+                    `prb_${Math.random().toString(36).substring(2, 10)}`,
+                    ep.id,
+                    status,
+                    latencyMs,
+                    gradeToStore,
+                    JSON.stringify(report.findings),
+                  ),
+              ]);
             } catch {
-              // Mark degraded on network error
-              await env.actionguard_db
-                .prepare(
-                  `UPDATE service_endpoints SET last_status = 'degraded', last_checked_at = datetime('now') WHERE id = ?`,
-                )
-                .bind(ep.id)
-                .run();
+              // Mark unreachable on network error
+              await env.actionguard_db.batch([
+                env.actionguard_db
+                  .prepare(
+                    `UPDATE service_endpoints SET last_status = 'down', last_checked_at = datetime('now') WHERE id = ?`,
+                  )
+                  .bind(ep.id),
+                env.actionguard_db
+                  .prepare("UPDATE services SET overall_grade = 'Unreachable' WHERE id = ?")
+                  .bind(ep.service_id),
+                env.actionguard_db
+                  .prepare(
+                    `INSERT INTO probes (id, endpoint_id, probed_at, status, latency_ms, grade, findings_json)
+                     VALUES (?, ?, datetime('now'), 'down', NULL, 'Unreachable', '[]')`,
+                  )
+                  .bind(`prb_${Math.random().toString(36).substring(2, 10)}`, ep.id),
+              ]);
             }
           })(),
         );

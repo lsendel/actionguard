@@ -12,10 +12,31 @@ export async function handleProxyRequest(
     req.headers.get('x-actionguard-target') ||
     new URL(req.url).searchParams.get('target');
 
-  const pinnedHash =
-    pinnedHashParam ||
-    req.headers.get('x-actionguard-pin') ||
+  const rawPin =
+    pinnedHashParam ??
+    req.headers.get('x-actionguard-pin') ??
     new URL(req.url).searchParams.get('pin');
+
+  // Refuse empty pin or empty-string SHA-256 fallback
+  const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  if (rawPin !== null && rawPin !== undefined) {
+    const trimmed = rawPin.trim();
+    if (!trimmed || trimmed === EMPTY_SHA256) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32602,
+            message:
+              'ActionGuard Proxy: Cryptographic pin rejected. An empty pin or empty-string SHA-256 cannot be used.',
+          },
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } },
+      );
+    }
+  }
+  const pinnedHash = rawPin ? rawPin.trim() : null;
 
   const serviceSlug =
     req.headers.get('x-actionguard-service') || new URL(req.url).searchParams.get('service');

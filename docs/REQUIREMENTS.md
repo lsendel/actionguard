@@ -10,7 +10,7 @@
 ## 1. Executive Summary & Vision
 
 ### 1.1 The Problem
-The agentic ecosystem is rapidly decentralizing. Models increasingly invoke remote tools and communicate via open protocols such as Anthropic’s **Model Context Protocol (MCP)**, Google’s **Agent2Agent (A2A)**, and **DNS-AID** (individual Internet-Draft). However, the infrastructure layer connecting agents to tools lacks operational guarantees:
+The agentic ecosystem is rapidly decentralizing. Models increasingly invoke remote tools and communicate via open protocols such as Anthropic’s **Model Context Protocol (MCP)**, Google’s **Agent2Agent (A2A)**, and **DNS-AID** (an emerging community Internet-Draft: [`draft-mozleywilliams-dnsop-dnsaid`](https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/)). However, the infrastructure layer connecting agents to tools lacks operational guarantees:
 - **Registries are static:** Centralized registries (like `registry.modelcontextprotocol.io`) list URLs but provide no proof that servers are reachable, performant, or backward-compatible.
 - **Silent Schema Drift:** When a remote tool provider updates their tool schema without a major semver bump, downstream autonomous agents crash or hallucinate invalid arguments.
 - **Tool Poisoning & Prompt Injection:** Tool descriptions are injected verbatim into the system prompts of LLM orchestrators. An unmonitored upstream tool can alter its descriptions to compromise agent execution.

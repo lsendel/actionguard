@@ -46,7 +46,7 @@ jobs:
       - name: Check Pinned MCP Schema
         run: |
           npx --yes @actionguard/cli check https://api.myservice.com/mcp \\
-            --pin e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+            --pin 81d36f5215b689d6f100cfe77096fbe8d113c304c0dd8374d69a84678fb69415
 </code></pre>
     `,
   },
@@ -116,7 +116,7 @@ jobs:
     updatedAt: 'October 20, 2026',
     contentHtml: `
       <h2>Why DNS-AID? Beyond Centralized Catalogs</h2>
-      <p>Most AI discovery formats rely on centralized registries or GitHub scraping. <strong>DNS-AID (DNS-based Agent Identification and Discovery)</strong> solves this by utilizing the internet's most robust directory: the <strong>Domain Name System (DNS)</strong>.</p>
+      <p>Most AI discovery formats rely on centralized registries or GitHub scraping. <strong>DNS-AID (DNS-based Agent Identification and Discovery)</strong> explores solving this by utilizing the internet's most robust directory: the <strong>Domain Name System (DNS)</strong>.</p>
       <p>DNS-AID is an individual Internet-Draft (<code>draft-mozleywilliams-dnsop-dnsaid</code>). It is not an IETF standard and has no working-group status. ActionGuard supports it as an experimental format.</p>
 
       <h2>How DNS-AID Works Without New Record Types</h2>

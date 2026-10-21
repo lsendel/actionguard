@@ -5,9 +5,6 @@ export const TOP_25_SERVERS = [
     displayName: 'GitHub MCP Server',
     canonicalDomain: 'github.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/github',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 95,
     tools: [
       {
         name: 'create_issue',
@@ -50,9 +47,6 @@ export const TOP_25_SERVERS = [
     displayName: 'PostgreSQL Database MCP Server',
     canonicalDomain: 'postgres.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/postgres',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 45,
     tools: [
       {
         name: 'query_readonly',
@@ -73,9 +67,6 @@ export const TOP_25_SERVERS = [
     displayName: 'SQLite Local Database MCP',
     canonicalDomain: 'sqlite.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 18,
     tools: [
       {
         name: 'read_query',
@@ -94,9 +85,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Brave Web Search MCP Server',
     canonicalDomain: 'brave-search.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search',
-    tier: 'API Verified',
-    grade: 'A+',
-    latencyMs: 140,
     tools: [
       {
         name: 'brave_web_search',
@@ -125,9 +113,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Web Fetch & HTML Scraper MCP',
     canonicalDomain: 'fetch.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/fetch',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 110,
     tools: [
       {
         name: 'fetch',
@@ -142,9 +127,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Puppeteer Headless Browser MCP',
     canonicalDomain: 'puppeteer.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer',
-    tier: 'Official Repository Verified',
-    grade: 'A',
-    latencyMs: 320,
     tools: [
       {
         name: 'puppeteer_navigate',
@@ -167,9 +149,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Slack Workspace Messaging MCP',
     canonicalDomain: 'slack.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/slack',
-    tier: 'API Verified',
-    grade: 'A+',
-    latencyMs: 125,
     tools: [
       {
         name: 'post_message',
@@ -193,9 +172,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Local Filesystem MCP Server',
     canonicalDomain: 'filesystem.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 12,
     tools: [
       {
         name: 'read_file',
@@ -224,9 +200,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Google Drive Document MCP',
     canonicalDomain: 'gdrive.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/gdrive',
-    tier: 'OAuth Verified',
-    grade: 'A+',
-    latencyMs: 165,
     tools: [
       {
         name: 'search_files',
@@ -245,9 +218,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Git Version Control MCP Server',
     canonicalDomain: 'git.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/git',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 25,
     tools: [
       {
         name: 'git_status',
@@ -268,9 +238,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Knowledge Graph Memory MCP',
     canonicalDomain: 'memory.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/memory',
-    tier: 'Official Repository Verified',
-    grade: 'A+',
-    latencyMs: 38,
     tools: [
       {
         name: 'create_entities',
@@ -298,9 +265,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Docker Engine Management MCP',
     canonicalDomain: 'docker.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/modelcontextprotocol/servers/tree/main/src/docker',
-    tier: 'Community Verified',
-    grade: 'A',
-    latencyMs: 52,
     tools: [
       {
         name: 'list_containers',
@@ -325,9 +289,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Sentry Error Observability MCP',
     canonicalDomain: 'sentry.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/getsentry/sentry-mcp',
-    tier: 'Official Partner Verified',
-    grade: 'A+',
-    latencyMs: 88,
     tools: [
       {
         name: 'get_issue',
@@ -352,9 +313,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Linear Project Tracker MCP',
     canonicalDomain: 'linear.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/linear/linear-mcp',
-    tier: 'Official Partner Verified',
-    grade: 'A+',
-    latencyMs: 92,
     tools: [
       {
         name: 'create_task',
@@ -382,9 +340,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Notion Knowledge Base MCP',
     canonicalDomain: 'notion.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/makenotion/notion-mcp',
-    tier: 'OAuth Verified',
-    grade: 'A+',
-    latencyMs: 142,
     tools: [
       {
         name: 'query_database',
@@ -403,9 +358,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Amazon S3 Object Storage MCP',
     canonicalDomain: 'aws-s3.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/awslabs/s3-mcp-server',
-    tier: 'Cloud Provider Verified',
-    grade: 'A+',
-    latencyMs: 104,
     tools: [
       {
         name: 'list_objects',
@@ -424,9 +376,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Cloudflare Developer Platform MCP',
     canonicalDomain: 'cloudflare.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/cloudflare/mcp-server-cloudflare',
-    tier: 'Official Infrastructure Verified',
-    grade: 'A+',
-    latencyMs: 42,
     tools: [
       {
         name: 'list_workers',
@@ -450,9 +399,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Redis In-Memory Data MCP',
     canonicalDomain: 'redis.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/redis/mcp-server-redis',
-    tier: 'Community Verified',
-    grade: 'A+',
-    latencyMs: 24,
     tools: [
       {
         name: 'get_key',
@@ -467,9 +413,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Atlassian Jira Project MCP',
     canonicalDomain: 'jira.mcp.modelcontextprotocol.io',
     repoUrl: 'https://github.com/atlassian/jira-mcp',
-    tier: 'OAuth Verified',
-    grade: 'A',
-    latencyMs: 175,
     tools: [
       {
         name: 'get_jira_issue',
@@ -488,9 +431,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Stripe Billing & Payments MCP',
     canonicalDomain: 'payments.stripe.mcp.io',
     repoUrl: 'https://github.com/stripe/stripe-mcp',
-    tier: 'Official Partner Verified',
-    grade: 'A+',
-    latencyMs: 98,
     tools: [
       {
         name: 'retrieve_customer',
@@ -509,9 +449,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Kubernetes Cluster Control MCP',
     canonicalDomain: 'kubernetes.mcp.io',
     repoUrl: 'https://github.com/kubernetes-sigs/mcp-k8s',
-    tier: 'Community Verified',
-    grade: 'A+',
-    latencyMs: 76,
     tools: [
       {
         name: 'get_pods',
@@ -530,9 +467,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Global Meteorological A2A Agent',
     canonicalDomain: 'weather.a2a.agentic.io',
     repoUrl: 'https://github.com/a2a-protocol/weather-agent',
-    tier: 'A2A Protocol v1.0 Verified',
-    grade: 'A+',
-    latencyMs: 130,
     tools: [
       {
         name: 'get_weather_forecast',
@@ -551,9 +485,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Autonomous Travel Booking Concierge A2A',
     canonicalDomain: 'travel.a2a.agentic.io',
     repoUrl: 'https://github.com/a2a-protocol/travel-concierge',
-    tier: 'A2A Protocol v1.0 Verified',
-    grade: 'A+',
-    latencyMs: 185,
     tools: [
       {
         name: 'search_flights',
@@ -572,9 +503,6 @@ export const TOP_25_SERVERS = [
     displayName: 'Where.Care Caregiver Analytics Agent',
     canonicalDomain: 'analytics.where.care',
     repoUrl: 'https://github.com/where-care/analytics',
-    tier: 'Domain & Security Verified',
-    grade: 'A+',
-    latencyMs: 115,
     tools: [
       {
         name: 'query_care_providers',
@@ -589,9 +517,6 @@ export const TOP_25_SERVERS = [
     displayName: 'ActionGuard Reference MCP Server',
     canonicalDomain: 'demo.actionguard.ai',
     repoUrl: 'https://github.com/actionguard/mcp-demo',
-    tier: 'Official Protocol Verified',
-    grade: 'A+',
-    latencyMs: 40,
     tools: [
       {
         name: 'inspect_agent',
@@ -603,15 +528,14 @@ export const TOP_25_SERVERS = [
   },
 ];
 export async function generateSeedSql() {
-  let sql = '-- Auto-generated Seed SQL for Top 25 Authoritative MCP Servers\n\n';
+  let sql = '-- Auto-generated Seed SQL for Authoritative MCP Servers\n\n';
   for (const s of TOP_25_SERVERS) {
-    const hashes = await computeDualHash(s.tools);
     const orgId = `org_${s.slug.replace(/[^a-zA-Z0-9]/g, '_')}`;
     const serviceId = `srv_${s.slug.replace(/[^a-zA-Z0-9]/g, '_')}`;
     const endpointId = `ep_${s.slug.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    sql += `INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('${orgId}', '${s.displayName}', '${s.slug}', 'verified');\n`;
-    sql += `INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('${serviceId}', '${orgId}', '${s.slug}', '${s.displayName}', '${s.canonicalDomain}', '${s.repoUrl}', '${s.tier}', '${s.grade}');\n`;
-    sql += `INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('${endpointId}', '${serviceId}', 'mcp_streamable_http', 'https://${s.canonicalDomain}/mcp', '${hashes.schema_sha256}', '${hashes.descriptions_sha256}', 'up', ${s.latencyMs}, datetime('now'));\n\n`;
+    sql += `INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('${orgId}', '${s.displayName.replace(/'/g, "''")}', '${s.slug}', 'community');\n`;
+    sql += `INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('${serviceId}', '${orgId}', '${s.slug}', '${s.displayName.replace(/'/g, "''")}', '${s.canonicalDomain}', '${s.repoUrl}', 'Unverified (curated listing)', 'Pending');\n`;
+    sql += `INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('${endpointId}', '${serviceId}', 'mcp_streamable_http', 'https://${s.canonicalDomain}/mcp', NULL, NULL, 'unknown', NULL, NULL);\n\n`;
   }
   return sql;
 }

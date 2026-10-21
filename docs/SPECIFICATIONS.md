@@ -176,8 +176,8 @@ When compiled by `actionguard compile --target a2a`, ActionGuard produces:
 }
 ```
 
-### 4.3 Export to DNS-AID Zone Records (IETF Draft)
-When compiled by `actionguard compile --target dns-aid`, ActionGuard generates the RFC 8552 underscored DNS records:
+### 4.3 Export to DNS-AID Zone Records (Emerging Community Internet-Draft: draft-mozleywilliams-dnsop-dnsaid)
+When compiled by `actionguard compile --target dns-aid`, ActionGuard generates the RFC 8552 underscored DNS records conforming to the emerging community draft ([`draft-mozleywilliams-dnsop-dnsaid`](https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/)):
 
 ```text
 ; DNS-AID Records for matcher.where.care
@@ -191,7 +191,7 @@ _matcher._a2a._agents.where.care.     IN  SVCB  1 matcher.where.care. (
                                             port=443
                                             key65300="path=/a2a/v1"
                                         )
-_matcher._meta._agents.where.care.    IN  TXT   "v=aid1;ver=1.2.0;org=WhereCare;digest=sha256:e3b0c442..."
+_matcher._meta._agents.where.care.    IN  TXT   "v=aid1;ver=1.2.0;org=WhereCare;digest=sha256:81d36f52..."
 ```
 
 ---

@@ -6,8 +6,8 @@ export function renderHomepageHtml(): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ActionGuard.ai — SSL Labs for AI Agents & MCP Servers</title>
-  <meta name="description" content="Evidence-first verification, reliability monitoring, and schema drift detection for Model Context Protocol and Agent2Agent services.">
+  <title>ActionGuard.ai — Drift &amp; Poisoning Detection for MCP Servers</title>
+  <meta name="description" content="Know when your MCP server changes, not just when it goes down. Diff detection for MCP tools: catch silent schema drift and poisoned descriptions before your agents run them.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -217,6 +217,7 @@ export function renderHomepageHtml(): string {
   <header>
     <a href="/" class="logo">
       Action<span>Guard</span>.ai
+      <span style="font-size:12px;font-weight:500;color:var(--text-muted);margin-left:6px;">drift &amp; poisoning detection</span>
     </a>
     <div class="nav-links">
       <a href="/index" class="nav-link">Reliability Index</a>
@@ -224,17 +225,17 @@ export function renderHomepageHtml(): string {
       <a href="/verify" class="nav-link">Verify Domain</a>
       <a href="/pricing" class="nav-link">Pricing</a>
       <a href="/docs/mcp-schema-drift" class="nav-link">Protocol Docs</a>
-      <span class="shield-badge">SSL Labs for Agents</span>
+      <span class="shield-badge">SSL Labs for MCP</span>
     </div>
   </header>
 
   <main>
     <div class="hero">
       <div class="hero-pill">
-        <span>●</span> Continuous Edge Probing &bull; 15-Minute Monitoring Active
+        <span>●</span> SSL Labs for MCP Servers &bull; Dual-Hash Change Detection
       </div>
-      <h1>Verification, Reliability &amp; Drift Detection for AI Agents</h1>
-      <p>Instantly probe any remote MCP server or A2A endpoint. Detect silent schema mutations, audit OAuth 2.1 handshakes, and generate verified manifests in seconds.</p>
+      <h1>Know when your MCP server changes, not just when it goes down.</h1>
+      <p>Diff detection for MCP tools: catch silent schema drift and poisoned descriptions before your autonomous agents run them.</p>
 
       <form action="/inspect" method="GET" class="inspect-box">
         <input type="url" name="url" placeholder="https://example.com/mcp or https://agent.domain.com" required autocomplete="off" />
@@ -245,7 +246,7 @@ export function renderHomepageHtml(): string {
         <span>Quick Samples:</span>
         <a href="/inspect?url=https%3A%2F%2Fapi.github.com%2Fmcp" class="sample-btn">GitHub MCP</a>
         <a href="/inspect?url=https%3A%2F%2Fanalytics.where.care%2Fmcp" class="sample-btn">Where.Care MCP</a>
-        <a href="/inspect?url=https%3A%2F%2Fdemo.actionguard.ai%2Fmcp" class="sample-btn">ActionGuard Demo</a>
+        <a href="/inspect?url=https%3A%2F%2Factionguard.ai%2Fmcp" class="sample-btn">ActionGuard Live MCP</a>
       </div>
     </div>
 
@@ -635,15 +636,17 @@ export function renderIndexHtml(
     overall_grade: string;
     verification_tier: string;
     created_at: string;
+    last_checked_at?: string;
   }>,
+  totalCount = services.length,
 ): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ActionGuard.ai — Agent Reliability Index</title>
-  <meta name="description" content="Public leaderboard of verified, monitored Model Context Protocol (MCP) servers and Agent2Agent endpoints.">
+  <title>ActionGuard.ai — Agent Reliability Index (${totalCount} Servers)</title>
+  <meta name="description" content="Public leaderboard of ${totalCount} monitored Model Context Protocol (MCP) servers and Agent2Agent endpoints.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -688,7 +691,7 @@ export function renderIndexHtml(
     }
     main {
       flex: 1;
-      max-width: 980px;
+      max-width: 1080px;
       margin: 0 auto;
       padding: 50px 24px 80px;
       width: 100%;
@@ -738,7 +741,8 @@ export function renderIndexHtml(
     .grade-A, .grade-Ap { background: rgba(16, 185, 129, 0.15); color: #34d399; }
     .grade-B { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
     .grade-C { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
-    .grade-D, .grade-F { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .grade-D, .grade-F, .grade-Unreachable { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .grade-Pending { background: rgba(156, 163, 175, 0.15); color: #9ca3af; }
     footer {
       border-top: 1px solid var(--border);
       padding: 24px 32px;
@@ -760,8 +764,8 @@ export function renderIndexHtml(
 
   <main>
     <div class="hero">
-      <h1>Agent Reliability Index</h1>
-      <p>Verified public registry of Model Context Protocol (MCP) and Agent2Agent endpoints continuously monitored by ActionGuard.</p>
+      <h1>Agent Reliability Index (${totalCount} Monitored Endpoints)</h1>
+      <p>Public registry of ${totalCount} Model Context Protocol (MCP) and Agent2Agent endpoints continuously monitored by ActionGuard.</p>
     </div>
 
     <div class="table-card">
@@ -771,6 +775,8 @@ export function renderIndexHtml(
             <th>Service &amp; Domain</th>
             <th>Grade</th>
             <th>Verification</th>
+            <th>Monitored Since</th>
+            <th>Last Probed</th>
             <th>Live Badge</th>
             <th>Action</th>
           </tr>
@@ -778,11 +784,35 @@ export function renderIndexHtml(
         <tbody>
           ${
             services.length === 0
-              ? `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:40px;">No verified services indexed yet. <a href="/" style="color:#60a5fa;">Inspect the first one &rarr;</a></td></tr>`
+              ? `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px;">No verified services indexed yet. <a href="/" style="color:#60a5fa;">Inspect the first one &rarr;</a></td></tr>`
               : services
                   .map((s) => {
                     const gradeClass =
-                      s.overall_grade === 'A+' ? 'grade-Ap' : `grade-${s.overall_grade}`;
+                      s.overall_grade === 'A+'
+                        ? 'grade-Ap'
+                        : s.overall_grade === 'Unreachable'
+                          ? 'grade-Unreachable'
+                          : s.overall_grade === 'Pending'
+                            ? 'grade-Pending'
+                            : `grade-${s.overall_grade}`;
+
+                    const monitoredSince = s.created_at
+                      ? new Date(s.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : 'Unknown';
+
+                    const lastProbed = s.last_checked_at
+                      ? new Date(s.last_checked_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '<span style="color:var(--text-muted);font-style:italic;">Pending</span>';
+
                     return `
             <tr>
               <td>
@@ -794,6 +824,12 @@ export function renderIndexHtml(
               </td>
               <td>
                 <span style="font-size:12px;color:#93c5fd;">${escapeHtml(s.verification_tier)}</span>
+              </td>
+              <td style="font-size:13px;color:var(--text-muted);">
+                ${escapeHtml(monitoredSince)}
+              </td>
+              <td style="font-size:13px;color:var(--text-muted);">
+                ${lastProbed}
               </td>
               <td>
                 <a href="/servers/${encodeURIComponent(s.slug)}">

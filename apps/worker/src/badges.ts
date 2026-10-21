@@ -1,18 +1,20 @@
 export function renderBadgeSvg(
   label: string,
   value: string,
-  grade = 'A+',
+  grade = 'Pending',
   tier = 'unverified',
 ): string {
   let color = '#10b981'; // Green for A/A+
-  if (tier === 'Domain Verified' || tier.includes('Domain')) {
+  if (grade === 'Unreachable' || value === 'Unreachable' || grade === 'F' || grade === 'D') {
+    color = '#ef4444'; // Red for failures
+  } else if (tier === 'Domain Verified') {
     color = '#f59e0b'; // Gold for Domain Verified
   } else if (grade === 'B') {
     color = '#3b82f6'; // Blue
   } else if (grade === 'C') {
     color = '#f59e0b'; // Amber
-  } else if (grade === 'D' || grade === 'F') {
-    color = '#ef4444'; // Red
+  } else if (grade === 'Pending' || value === 'Pending') {
+    color = '#9ca3af'; // Grey for pending
   }
 
   const displayVal = tier === 'Domain Verified' ? `⭐ ${value}` : value;

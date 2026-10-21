@@ -49,8 +49,8 @@ export function renderPricingHtml(): string {
     .hero p { font-size: 17px; color: var(--text-muted); max-width: 640px; margin: 0 auto; }
     .pricing-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
       margin-bottom: 50px;
     }
     .plan-card {
@@ -164,6 +164,21 @@ export function renderPricingHtml(): string {
         <button class="btn-plan" onclick="document.getElementById('keyGenSection').scrollIntoView({behavior:'smooth'})">Get Free API Key</button>
       </div>
 
+      <!-- Indie Developer Plan -->
+      <div class="plan-card">
+        <div class="plan-name">Indie</div>
+        <div class="plan-price">$19 <span>/ month</span></div>
+        <div class="plan-desc">For solo MCP developers, open-source maintainers, and indie agent builders.</div>
+        <ul class="features-list">
+          <li><strong>15-Minute Continuous Edge Probing</strong></li>
+          <li>Up to 3 Monitored Endpoints</li>
+          <li>Real-time Email Schema Drift Alerts</li>
+          <li>15,000 Zero-Trust Proxy Calls / month</li>
+          <li>Verified Profile &amp; Claimed README Badge</li>
+        </ul>
+        <a href="mailto:sales@where.care?subject=ActionGuard%20Indie%20Upgrade" class="btn-plan">Get Indie Plan &rarr;</a>
+      </div>
+
       <!-- Pro Developer Plan -->
       <div class="plan-card featured">
         <div class="plan-pill">Most Popular</div>
@@ -171,7 +186,7 @@ export function renderPricingHtml(): string {
         <div class="plan-price">$49 <span>/ month</span></div>
         <div class="plan-desc">For production AI agents and startup engineering teams.</div>
         <ul class="features-list">
-          <li><strong>1-Minute High-Frequency Probing</strong></li>
+          <li><strong>Continuous 15-Minute Edge Probing</strong></li>
           <li>Up to 25 Monitored Endpoints</li>
           <li>Real-time Email &amp; Webhook Drift Alerts</li>
           <li>50,000 Zero-Trust Proxy Calls / month</li>

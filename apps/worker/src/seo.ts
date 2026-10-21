@@ -85,16 +85,9 @@ export function generateServerJsonLd(service: {
     '@context': 'https://schema.org',
     '@type': 'SoftwareSourceCode',
     name: `${service.display_name} MCP Server`,
-    description: `Real-time health status, schema verification, and latency benchmarks for ${service.display_name} (${service.canonical_domain}).`,
+    description: `Health status, schema verification, and latency benchmarks for ${service.display_name} (${service.canonical_domain}).`,
     codeRepository: `https://${service.canonical_domain}`,
     programmingLanguage: 'JSON-RPC 2.0',
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue:
-        service.overall_grade === 'A+' ? '5.0' : service.overall_grade === 'A' ? '4.8' : '4.0',
-      bestRating: '5',
-      ratingCount: '124',
-    },
   };
   return JSON.stringify(jsonLd);
 }

@@ -4,20 +4,31 @@ export function renderOgCardSvg(params: {
   grade?: string;
   tier?: string;
   schemaHash?: string;
-  latencyMs?: number;
+  latencyMs?: number | null;
+  uptimeStr?: string;
+  probeFrequency?: string;
 }): string {
-  const grade = params.grade || 'A+';
-  const tier = params.tier || 'Community Verified';
+  const grade = params.grade || 'Pending';
+  const tier = params.tier || 'Unverified (curated listing)';
   const domain = params.domain || 'actionguard.ai';
-  const latency = params.latencyMs || 120;
-  const hash = params.schemaHash
-    ? `${params.schemaHash.substring(0, 24)}...`
-    : 'Pinned Cryptographic Digest';
+  const latencyDisplay =
+    typeof params.latencyMs === 'number' && params.latencyMs > 0
+      ? `${params.latencyMs}ms`
+      : 'no data yet';
+  const uptimeDisplay = params.uptimeStr || 'Collecting data';
+  const probeFrequency = params.probeFrequency || 'Every 15 min';
+
+  const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const hasHash = Boolean(
+    params.schemaHash && params.schemaHash.trim() !== '' && params.schemaHash !== EMPTY_SHA256,
+  );
+  const hash = hasHash ? `${params.schemaHash?.substring(0, 24)}...` : 'Not yet pinned';
 
   let gradeColor = '#10b981';
   if (grade === 'B') gradeColor = '#3b82f6';
   else if (grade === 'C') gradeColor = '#f59e0b';
-  else if (grade === 'D' || grade === 'F') gradeColor = '#ef4444';
+  else if (grade === 'D' || grade === 'F' || grade === 'Unreachable') gradeColor = '#ef4444';
+  else if (grade === 'Pending') gradeColor = '#9ca3af';
 
   const tierColor = tier.includes('Domain') ? '#f59e0b' : '#38bdf8';
 
@@ -71,8 +82,8 @@ export function renderOgCardSvg(params: {
     <!-- Left Column: Title and Details -->
     <g transform="translate(60, 60)">
       <!-- Tier Pill -->
-      <rect width="180" height="32" rx="16" fill="${tierColor}" fill-opacity="0.15" stroke="${tierColor}" stroke-opacity="0.4"/>
-      <text x="90" y="21" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="13" fill="${tierColor}" text-anchor="middle">${escapeHtml(tier)}</text>
+      <rect width="220" height="32" rx="16" fill="${tierColor}" fill-opacity="0.15" stroke="${tierColor}" stroke-opacity="0.4"/>
+      <text x="110" y="21" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="${tierColor}" text-anchor="middle">${escapeHtml(tier)}</text>
 
       <!-- Server Name -->
       <text y="90" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="44" fill="#ffffff" letter-spacing="-1">${escapeHtml(params.title)}</text>
@@ -84,37 +95,33 @@ export function renderOgCardSvg(params: {
       <g transform="translate(0, 180)">
         <g>
           <text font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="#6b7280" text-transform="uppercase">LATENCY</text>
-          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="22" fill="#ffffff">${latency}ms</text>
+          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="20" fill="#ffffff">${escapeHtml(latencyDisplay)}</text>
         </g>
         <g transform="translate(160, 0)">
           <text font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="#6b7280" text-transform="uppercase">UPTIME</text>
-          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="22" fill="#34d399">99.98%</text>
+          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="20" fill="#34d399">${escapeHtml(uptimeDisplay)}</text>
         </g>
-        <g transform="translate(320, 0)">
-          <text font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="#6b7280" text-transform="uppercase">CONTINUOUS PROBE</text>
-          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="22" fill="#ffffff">Every 15 min</text>
+        <g transform="translate(350, 0)">
+          <text font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="#6b7280" text-transform="uppercase">PROBE FREQUENCY</text>
+          <text y="28" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="800" font-size="20" fill="#ffffff">${escapeHtml(probeFrequency)}</text>
         </g>
       </g>
 
       <!-- Pinned Hash Block -->
       <g transform="translate(0, 260)">
-        <rect width="600" height="42" rx="8" fill="#020617" stroke="#1f2937" stroke-width="1"/>
-        <text x="14" y="26" font-family="'JetBrains Mono',monospace" font-size="13" fill="#93c5fd">🔒 SHA-256: ${escapeHtml(hash)}</text>
+        <text font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="#6b7280" text-transform="uppercase">PINNED CONTRACT HASH</text>
+        <rect y="12" width="560" height="42" rx="8" fill="#020617" stroke="#1f2937"/>
+        <text x="16" y="38" font-family="'JetBrains Mono',monospace" font-size="13" fill="#93c5fd">${escapeHtml(hash)}</text>
       </g>
     </g>
 
-    <!-- Right Column: Massive Score Emblem -->
+    <!-- Right Column: Big Circular Grade Badge -->
     <g transform="translate(800, 120)">
-      <circle cx="100" cy="100" r="90" fill="${gradeColor}" fill-opacity="0.1" stroke="${gradeColor}" stroke-width="4"/>
-      <text x="100" y="125" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="84" fill="${gradeColor}" text-anchor="middle">${grade}</text>
-      <text x="100" y="165" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="14" fill="#9ca3af" text-anchor="middle" letter-spacing="1">AUDIT GRADE</text>
+      <circle cx="90" cy="90" r="80" fill="${gradeColor}" fill-opacity="0.12" stroke="${gradeColor}" stroke-width="6"/>
+      <text x="90" y="${grade.length > 2 ? '95' : '105'}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="900" font-size="${grade.length > 4 ? '26' : '54'}" fill="${gradeColor}" text-anchor="middle">${escapeHtml(grade)}</text>
+      <text x="90" y="135" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-weight="700" font-size="12" fill="${gradeColor}" text-anchor="middle" letter-spacing="1">STATUS</text>
     </g>
   </g>
-
-  <!-- Footer Tagline -->
-  <text x="600" y="590" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif" font-size="14" fill="#6b7280" text-anchor="middle">
-    Verified by ActionGuard.ai &bull; Model Context Protocol &amp; Agent2Agent Reliability Telemetry
-  </text>
 </svg>`;
 }
 

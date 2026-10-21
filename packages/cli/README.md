@@ -18,7 +18,7 @@ npx @actionguard/cli inspect https://example.com/mcp
 npx @actionguard/cli compile ./actionguard.json
 
 # CI Gate: block PRs if remote endpoint schema drifts from pinned digest
-npx @actionguard/cli check https://api.myservice.com/mcp --pin e3b0c44298fc1c...
+npx @actionguard/cli check https://api.myservice.com/mcp --pin 81d36f5215b689d6f100cfe77096fbe8d113c304c0dd8374d69a84678fb69415
 ```
 
 Or install globally:
@@ -46,7 +46,7 @@ jobs:
         uses: actionguard/action@v1
         with:
           target_url: 'https://api.where.care/mcp'
-          pinned_hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+          pinned_hash: '81d36f5215b689d6f100cfe77096fbe8d113c304c0dd8374d69a84678fb69415'
 ```
 
 ---

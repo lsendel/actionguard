@@ -172,8 +172,9 @@ export function renderPlaygroundHtml(): string {
 
   <main>
     <div class="hero">
+      <div style="display:inline-block;background:rgba(59,130,246,0.15);border:1px solid #3b82f6;color:#60a5fa;font-size:12px;font-weight:700;padding:4px 12px;border-radius:20px;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">Simulated Environment</div>
       <h1>Schema Drift &amp; Prompt Poisoning Simulator</h1>
-      <p>Modify the MCP tool definition below or click the simulation buttons to watch the Dual-Hash cryptographic gate and runtime firewall react in real-time.</p>
+      <p>Interactive simulation environment. Modify the MCP tool definition below or click the simulation buttons to watch the Dual-Hash cryptographic gate and runtime firewall react in real-time.</p>
     </div>
 
     <div class="simulator-grid">

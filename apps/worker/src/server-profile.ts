@@ -1,4 +1,8 @@
+import type { UptimeStats } from '@actionguard/core';
 import { generateServerJsonLd } from './seo.js';
+
+const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+const DUMMY_DESC_SHA256 = 'b5a2c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 export function renderServerProfileHtml(service: {
   slug: string;
@@ -12,84 +16,173 @@ export function renderServerProfileHtml(service: {
     protocol: string;
     url: string;
     last_status: string;
-    last_latency_ms: number;
-    current_schema_sha256?: string;
-    current_descriptions_sha256?: string;
-    last_checked_at?: string;
+    last_latency_ms?: number | null;
+    current_schema_sha256?: string | null;
+    current_descriptions_sha256?: string | null;
+    last_checked_at?: string | null;
   }>;
+  uptimeStats?: UptimeStats;
 }): string {
-  let gradeColor = '#10b981';
-  if (service.overall_grade === 'B') gradeColor = '#3b82f6';
-  else if (service.overall_grade === 'C') gradeColor = '#f59e0b';
-  else if (service.overall_grade === 'D' || service.overall_grade === 'F') gradeColor = '#ef4444';
-
-  const badgeMarkdown = `[![ActionGuard Verified](https://actionguard.ai/badge/${service.slug}.svg)](https://actionguard.ai/servers/${service.slug})`;
   const ep = service.endpoints && service.endpoints.length > 0 ? service.endpoints[0] : undefined;
-  const pinnedHash =
-    ep?.current_schema_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const isUnreachable =
+    ep?.last_status === 'down' ||
+    service.overall_grade === 'Unreachable' ||
+    (service.overall_grade === 'F' && ep?.last_status !== 'up');
+
+  // Enforce consistent grade display: unreachable endpoints never show A+
+  let displayGrade = isUnreachable ? 'Unreachable' : service.overall_grade;
+  if (!displayGrade || displayGrade === 'PENDING') displayGrade = 'Pending';
+
+  let gradeColor = '#10b981';
+  let gradeBg = 'rgba(16, 185, 129, 0.15)';
+  let gradeBorder = '#10b981';
+
+  if (displayGrade === 'B') {
+    gradeColor = '#3b82f6';
+    gradeBg = 'rgba(59, 130, 246, 0.15)';
+    gradeBorder = '#3b82f6';
+  } else if (displayGrade === 'C') {
+    gradeColor = '#f59e0b';
+    gradeBg = 'rgba(245, 158, 11, 0.15)';
+    gradeBorder = '#f59e0b';
+  } else if (displayGrade === 'D' || displayGrade === 'F' || displayGrade === 'Unreachable') {
+    gradeColor = '#ef4444';
+    gradeBg = 'rgba(239, 68, 68, 0.15)';
+    gradeBorder = '#ef4444';
+  } else if (displayGrade === 'Pending') {
+    gradeColor = '#9ca3af';
+    gradeBg = 'rgba(156, 163, 175, 0.15)';
+    gradeBorder = '#9ca3af';
+  }
+
+  const isDomainVerified = service.verification_tier === 'Domain Verified';
+  const badgeMarkdown = isDomainVerified
+    ? `[![ActionGuard Verified](https://actionguard.ai/badge/${service.slug}.svg)](https://actionguard.ai/servers/${service.slug})`
+    : `[![ActionGuard](https://actionguard.ai/badge/${service.slug}.svg)](https://actionguard.ai/servers/${service.slug})`;
+
   const targetUrl = ep?.url || `https://${service.canonical_domain}`;
-  const githubActionYaml = `- name: Verify Upstream MCP Tools
-  uses: actionguard/action@v1
-  with:
-    target_url: '${targetUrl}'
-    pinned_hash: '${pinnedHash}'`;
 
-  const claudeDesktopConfig = JSON.stringify(
-    {
-      mcpServers: {
-        [service.slug]: {
-          url: `https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}`,
-        },
-      },
-    },
-    null,
-    2,
+  // Cryptographic Pin Verification
+  const rawSchemaHash = ep?.current_schema_sha256?.trim();
+  const hasSchemaPin = Boolean(rawSchemaHash && rawSchemaHash !== EMPTY_SHA256);
+  const pinnedHash = hasSchemaPin && rawSchemaHash ? rawSchemaHash : null;
+
+  const rawDescHash = ep?.current_descriptions_sha256?.trim();
+  const hasDescPin = Boolean(
+    rawDescHash && rawDescHash !== DUMMY_DESC_SHA256 && rawDescHash !== EMPTY_SHA256,
   );
+  const pinnedDescHash = hasDescPin && rawDescHash ? rawDescHash : null;
 
-  const pythonSnippet = `# Route MCP tool calls through ActionGuard edge proxy
-import httpx
+  // Code integration snippets (only populated when a valid pinned schema hash exists)
+  const githubActionYaml = hasSchemaPin
+    ? `- name: Verify Upstream MCP Tools\n  uses: actionguard/action@v1\n  with:\n    target_url: '${targetUrl}'\n    pinned_hash: '${pinnedHash}'`
+    : '';
 
-GATEWAY = "https://actionguard.ai/v1/proxy"
-TARGET = "${targetUrl}"
-PIN = "${pinnedHash}"
+  const claudeDesktopConfig = hasSchemaPin
+    ? JSON.stringify(
+        {
+          mcpServers: {
+            [service.slug]: {
+              url: `https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}`,
+            },
+          },
+        },
+        null,
+        2,
+      )
+    : '';
 
-# Requests fail with 423 Locked if upstream schema drifts
-client = httpx.Client(base_url=f"{GATEWAY}?target={TARGET}&pin={PIN}")`;
+  const pythonSnippet = hasSchemaPin
+    ? `# Route MCP tool calls through ActionGuard edge proxy\nimport httpx\n\nGATEWAY = "https://actionguard.ai/v1/proxy"\nTARGET = "${targetUrl}"\nPIN = "${pinnedHash}"\n\n# Requests fail with 423 Locked if upstream schema drifts\nclient = httpx.Client(base_url=f"{GATEWAY}?target={TARGET}&pin={PIN}")`
+    : '';
 
-  const tsSnippet = `import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHttpClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+  const tsSnippet = hasSchemaPin
+    ? `import { Client } from "@modelcontextprotocol/sdk/client/index.js";\nimport { StreamableHttpClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";\n\n// ActionGuard Zero-Trust Edge Gateway\nconst transport = new StreamableHttpClientTransport(\n  new URL("https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}")\n);\nconst client = new Client({ name: "agent", version: "1.0.0" }, { capabilities: {} });\nawait client.connect(transport);`
+    : '';
 
-// ActionGuard Zero-Trust Edge Gateway
-const transport = new StreamableHttpClientTransport(
-  new URL("https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}")
-);
-const client = new Client({ name: "agent", version: "1.0.0" }, { capabilities: {} });
-await client.connect(transport);`;
+  const curlSnippet = hasSchemaPin
+    ? `curl -X POST "https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}" \\\n  -H "Content-Type: application/json" \\\n  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'`
+    : '';
 
-  const curlSnippet = `curl -X POST "https://actionguard.ai/v1/proxy?target=${encodeURIComponent(targetUrl)}&pin=${pinnedHash}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"jsonrpc":"2.0","method":"tools/list","id":1}'`;
+  // Uptime and latency metrics computation
+  const uptimeStats = service.uptimeStats;
+  let uptimeDisplay = 'Collecting data (0 probes)';
+  let uptimeLabel = 'Uptime';
+  let uptimeColor = 'var(--text-muted)';
 
-  const jsonLd = generateServerJsonLd(service);
+  if (uptimeStats?.hasMinimumProbes && uptimeStats.uptimePercent !== null) {
+    uptimeDisplay = uptimeStats.displayUptime;
+    uptimeLabel = uptimeStats.windowLabel;
+    uptimeColor = '#34d399';
+  } else if (uptimeStats) {
+    uptimeDisplay = uptimeStats.displayUptime;
+    uptimeLabel = 'Uptime';
+    uptimeColor = 'var(--text-muted)';
+  } else {
+    const formattedCreated = new Date(service.created_at).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    uptimeDisplay = `Collecting data (0 probes since ${formattedCreated})`;
+  }
+
+  let latencyDisplay = 'no data yet';
+  if (ep?.last_latency_ms !== null && ep?.last_latency_ms !== undefined && ep.last_latency_ms > 0) {
+    latencyDisplay = `${ep.last_latency_ms}ms`;
+  } else if (uptimeStats?.medianLatencyMs) {
+    latencyDisplay = `${uptimeStats.medianLatencyMs}ms`;
+  }
+
+  // Runtime status computation
+  let statusText = 'Pending';
+  let statusColor = 'var(--text-muted)';
+  const lastCheckedFormatted = ep?.last_checked_at
+    ? new Date(ep.last_checked_at).toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
+  if (isUnreachable) {
+    statusText = lastCheckedFormatted
+      ? `Unreachable (checked ${lastCheckedFormatted})`
+      : 'Unreachable';
+    statusColor = '#ef4444';
+  } else if (ep?.last_status === 'up') {
+    statusText = 'Operational';
+    statusColor = '#34d399';
+  } else if (ep?.last_status === 'degraded') {
+    statusText = 'Degraded';
+    statusColor = '#f59e0b';
+  }
+
+  const jsonLd = generateServerJsonLd({
+    display_name: service.display_name,
+    canonical_domain: service.canonical_domain,
+    overall_grade: displayGrade,
+  });
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(service.display_name)} MCP Server — Uptime, Schema & Status | ActionGuard</title>
-  <meta name="description" content="View verified uptime, schema hash integrity, and protocol conformance benchmarks for ${escapeHtml(service.display_name)} (${escapeHtml(service.canonical_domain)}).">
+  <title>${escapeHtml(service.display_name)} MCP Server — Status &amp; Verification | ActionGuard</title>
+  <meta name="description" content="View uptime, schema contract hash status, and protocol conformance benchmarks for ${escapeHtml(service.display_name)} (${escapeHtml(service.canonical_domain)}).">
   <link rel="canonical" href="https://actionguard.ai/servers/${encodeURIComponent(service.slug)}" />
   
   <!-- OpenGraph / Social Meta Tags -->
   <meta property="og:title" content="${escapeHtml(service.display_name)} MCP Server — Status &amp; Verification" />
-  <meta property="og:description" content="ActionGuard Protocol Audit: Grade ${service.overall_grade} &bull; ${service.verification_tier}" />
+  <meta property="og:description" content="ActionGuard Protocol Audit: Grade ${escapeHtml(displayGrade)} &bull; ${escapeHtml(service.verification_tier)}" />
   <meta property="og:url" content="https://actionguard.ai/servers/${encodeURIComponent(service.slug)}" />
   <meta property="og:image" content="https://actionguard.ai/og/${encodeURIComponent(service.slug)}.svg" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(service.display_name)} MCP Server Verification" />
-  <meta name="twitter:description" content="ActionGuard Protocol Audit: Grade ${service.overall_grade} &bull; ${service.verification_tier}" />
+  <meta name="twitter:description" content="ActionGuard Protocol Audit: Grade ${escapeHtml(displayGrade)} &bull; ${escapeHtml(service.verification_tier)}" />
   <meta name="twitter:image" content="https://actionguard.ai/og/${encodeURIComponent(service.slug)}.svg" />
 
   <!-- Schema.org JSON-LD -->
@@ -107,6 +200,7 @@ await client.connect(transport);`;
       --border: #1f2937;
       --text: #f9fafb;
       --text-muted: #9ca3af;
+      --accent: #3b82f6;
       --green: #10b981;
       --amber: #f59e0b;
       --red: #ef4444;
@@ -159,85 +253,89 @@ await client.connect(transport);`;
       padding: 32px;
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 24px;
-      flex-wrap: wrap;
-      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 32px;
+    }
+    .server-title {
+      font-size: 32px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .server-domain {
+      font-family: 'JetBrains Mono', monospace;
+      color: #60a5fa;
+      font-size: 14px;
     }
     .score-badge {
-      width: 96px;
-      height: 96px;
-      border-radius: 16px;
-      background: ${gradeColor}1a;
-      border: 2px solid ${gradeColor};
-      color: ${gradeColor};
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 38px;
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      font-size: 28px;
       font-weight: 800;
-      line-height: 1;
+      text-align: center;
+      padding: 4px;
+      line-height: 1.1;
     }
-    .score-badge span { font-size: 11px; font-weight: 700; margin-top: 4px; text-transform: uppercase; }
-    .server-title { font-size: 28px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.5px; }
-    .server-domain { font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #60a5fa; }
-    
+    .score-badge span { font-size: 10px; font-weight: 700; margin-top: 2px; text-transform: uppercase; }
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 16px;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
     .stat-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 16px 20px;
+      padding: 20px;
     }
     .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 6px; }
     .stat-value { font-size: 20px; font-weight: 800; color: #fff; }
-    
     .badge-card {
-      background: linear-gradient(135deg, rgba(30, 58, 138, 0.2), rgba(17, 24, 39, 0.8));
-      border: 1px solid rgba(59, 130, 246, 0.3);
+      background: var(--card-bg);
+      border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px 24px;
-      margin-bottom: 28px;
+      padding: 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 16px;
       flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 32px;
     }
     .copy-btn {
       background: #2563eb;
       color: #fff;
       border: none;
       padding: 8px 16px;
-      border-radius: 8px;
-      font-size: 13px;
+      border-radius: 6px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s;
     }
     .copy-btn:hover { opacity: 0.9; }
-
-    .section-title { font-size: 18px; font-weight: 700; margin: 32px 0 16px; }
     .hash-block {
       background: #020617;
       border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px;
+      border-radius: 8px;
+      padding: 12px 16px;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
+      font-size: 13px;
       color: #93c5fd;
       word-break: break-all;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
+    .section-title { font-size: 18px; font-weight: 700; margin: 32px 0 16px; }
     footer {
       border-top: 1px solid var(--border);
-      padding: 24px 32px;
+      padding: 24px;
       text-align: center;
       font-size: 13px;
       color: var(--text-muted);
@@ -248,8 +346,9 @@ await client.connect(transport);`;
   <header>
     <a href="/" class="logo">Action<span>Guard</span>.ai</a>
     <div style="display:flex;gap:16px;align-items:center;">
-      <a href="/index" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Index</a>
-      <a href="/inspect?url=https://${encodeURIComponent(service.canonical_domain)}" style="background:#2563eb;color:#fff;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;text-decoration:none;">Live Re-Inspect</a>
+      <a href="/index" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Reliability Index</a>
+      <a href="/verify" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Verify Domain</a>
+      <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Docs</a>
     </div>
   </header>
 
@@ -266,28 +365,28 @@ await client.connect(transport);`;
           Verification Tier: <strong style="color:#93c5fd;">${escapeHtml(service.verification_tier)}</strong> &bull; Monitored since ${new Date(service.created_at).toLocaleDateString()}
         </div>
       </div>
-      <div class="score-badge">
-        ${escapeHtml(service.overall_grade)}
-        <span>Grade</span>
+      <div class="score-badge" style="background:${gradeBg};color:${gradeColor};border:1px solid ${gradeBorder};">
+        ${escapeHtml(displayGrade === 'Unreachable' ? 'FAIL' : displayGrade)}
+        <span>${escapeHtml(displayGrade === 'Unreachable' ? 'Unreachable' : 'Grade')}</span>
       </div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Last Measured Latency</div>
-        <div class="stat-value">${ep?.last_latency_ms || 120}ms</div>
+        <div class="stat-value">${latencyDisplay}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Runtime Status</div>
-        <div class="stat-value" style="color:#34d399;">${ep?.last_status === 'up' ? 'Operational' : 'Online'}</div>
+        <div class="stat-value" style="color:${statusColor};font-size:${isUnreachable ? '15px' : '20px'};">${escapeHtml(statusText)}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Probe Frequency</div>
         <div class="stat-value">Every 15 min</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">30-Day Uptime</div>
-        <div class="stat-value" style="color:#34d399;">99.98%</div>
+        <div class="stat-label">${escapeHtml(uptimeLabel)}</div>
+        <div class="stat-value" style="color:${uptimeColor};font-size:${uptimeStats?.hasMinimumProbes ? '20px' : '13px'};">${escapeHtml(uptimeDisplay)}</div>
       </div>
     </div>
 
@@ -298,7 +397,11 @@ await client.connect(transport);`;
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="copy-btn" onclick="copyBadgeMarkdown(this)">Copy Badge Markdown</button>
-        <button class="copy-btn" style="background:#1e293b;border:1px solid #3b82f6;color:#93c5fd;" onclick="copyGithubAction(this)">Copy CI Action YAML</button>
+        ${
+          hasSchemaPin
+            ? `<button class="copy-btn" style="background:#1e293b;border:1px solid #3b82f6;color:#93c5fd;" onclick="copyGithubAction(this)">Copy CI Action YAML</button>`
+            : ''
+        }
       </div>
     </div>
 
@@ -332,15 +435,23 @@ await client.connect(transport);`;
             Route execution through ActionGuard edge firewall. Terminate calls with <code>423 Locked</code> if upstream schemas drift.
           </p>
         </div>
-        <button id="testGatewayBtn" onclick="testGateway(this)" style="background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
-          ▶ Test Gateway Preflight
-        </button>
+        ${
+          hasSchemaPin
+            ? `<button id="testGatewayBtn" onclick="testGateway(this)" style="background:#2563eb;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">
+                ▶ Test Gateway Preflight
+              </button>`
+            : `<button disabled style="background:#1e293b;color:var(--text-muted);border:1px solid var(--border);padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:not-allowed;">
+                ▶ Pin Required to Test Gateway
+              </button>`
+        }
       </div>
 
       <!-- Test Gateway Output Console -->
       <div id="gatewayConsole" style="display:none;background:#020617;border:1px solid #1e293b;border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#38bdf8;margin-bottom:16px;"></div>
 
-      <!-- Tab Buttons -->
+      ${
+        hasSchemaPin
+          ? `<!-- Tab Buttons -->
       <div style="display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;overflow-x:auto;">
         <button class="tab-btn active" onclick="switchSnippet('claude', this)" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Claude / Cursor JSON</button>
         <button class="tab-btn" onclick="switchSnippet('python', this)" style="background:transparent;color:var(--text-muted);border:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;">Python SDK</button>
@@ -351,17 +462,22 @@ await client.connect(transport);`;
       <div style="position:relative;">
         <pre id="snippetCode" style="background:#020617;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#93c5fd;overflow-x:auto;white-space:pre;"></pre>
         <button onclick="copySnippetCode(this)" style="position:absolute;top:10px;right:10px;background:#1e293b;border:1px solid #3b82f6;color:#93c5fd;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;">Copy</button>
-      </div>
+      </div>`
+          : `<div style="background:#020617;border:1px solid var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;line-height:1.6;">
+              <strong>Not yet pinned.</strong><br>
+              A verified schema hash has not yet been recorded for this endpoint. Run a live inspection to capture and pin the tools schema before generating zero-trust gateway configurations.
+            </div>`
+      }
     </div>
 
     <div class="section-title">Cryptographic Contract Hashes</div>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Orchestrators pin these hashes to prevent silent tool poisoning and breaking API regressions:</p>
     
     <div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">PINNED SCHEMA SHA-256</div>
-    <div class="hash-block">${pinnedHash}</div>
+    <div class="hash-block">${hasSchemaPin ? pinnedHash : '<span style="color:var(--text-muted);font-style:italic;">Not yet pinned</span>'}</div>
 
     <div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">PINNED DESCRIPTIONS SHA-256</div>
-    <div class="hash-block">${ep?.current_descriptions_sha256 || 'b5a2c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}</div>
+    <div class="hash-block">${hasDescPin ? pinnedDescHash : '<span style="color:var(--text-muted);font-style:italic;">Not yet pinned</span>'}</div>
 
     <div style="margin-top: 36px; padding: 24px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; text-align: center;">
       <h3 style="font-size:18px;margin-bottom:8px;">Are you the maintainer of ${escapeHtml(service.canonical_domain)}?</h3>
@@ -391,7 +507,9 @@ await client.connect(transport);`;
       });
     }
 
-    function copyGithubAction(btn) {
+    ${
+      hasSchemaPin
+        ? `function copyGithubAction(btn) {
       const text = ${JSON.stringify(githubActionYaml)};
       navigator.clipboard.writeText(text).then(() => {
         const orig = btn.innerText;
@@ -402,6 +520,8 @@ await client.connect(transport);`;
           btn.style.background = '';
         }, 2000);
       });
+    }`
+        : ''
     }
 
     async function subscribeAlerts(btn) {
@@ -453,7 +573,9 @@ await client.connect(transport);`;
       }
     }
 
-    const snippets = {
+    ${
+      hasSchemaPin
+        ? `const snippets = {
       claude: ${JSON.stringify(claudeDesktopConfig)},
       python: ${JSON.stringify(pythonSnippet)},
       ts: ${JSON.stringify(tsSnippet)},
@@ -461,11 +583,13 @@ await client.connect(transport);`;
     };
 
     let activeSnippetKey = 'claude';
-    document.getElementById('snippetCode').textContent = snippets.claude;
+    const codeEl = document.getElementById('snippetCode');
+    if (codeEl) codeEl.textContent = snippets.claude;
 
     function switchSnippet(key, btn) {
       activeSnippetKey = key;
-      document.getElementById('snippetCode').textContent = snippets[key];
+      const el = document.getElementById('snippetCode');
+      if (el) el.textContent = snippets[key];
       document.querySelectorAll('.tab-btn').forEach(b => {
         b.style.background = 'transparent';
         b.style.color = 'var(--text-muted)';
@@ -497,7 +621,7 @@ await client.connect(transport);`;
       const start = performance.now();
 
       try {
-        const res = await fetch('/v1/proxy?target=' + encodeURIComponent(${JSON.stringify(targetUrl)}) + '&pin=' + encodeURIComponent(${JSON.stringify(pinnedHash)}), {
+        const res = await fetch('/v1/proxy?target=' + encodeURIComponent(${JSON.stringify(targetUrl)}) + '&pin=' + encodeURIComponent(${JSON.stringify(pinnedHash || '')}), {
           method: 'GET'
         });
         const duration = Math.round(performance.now() - start);
@@ -512,6 +636,8 @@ await client.connect(transport);`;
       } finally {
         btn.disabled = false;
       }
+    }`
+        : ''
     }
   </script>
 </body>
