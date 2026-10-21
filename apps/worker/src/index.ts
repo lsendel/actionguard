@@ -320,11 +320,15 @@ app.get('/server.json', (c) => {
   c.header('Access-Control-Allow-Origin', '*');
   return c.json({
     $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
-    name: 'com.actionguard/inspector',
+    name: 'io.github.lsendel/actionguard',
     title: 'ActionGuard Protocol Inspector Agent',
     description:
-      'Diff and poisoning detection for MCP servers: dual-hash fingerprinting to catch schema drift and poisoned tool descriptions before agents run them.',
+      'Diff and poisoning detection for MCP servers: catch schema drift and prompt poisoning.',
     version: '1.0.0',
+    repository: {
+      url: 'https://github.com/lsendel/actionguard',
+      source: 'github',
+    },
     remotes: [
       {
         type: 'streamable-http',
@@ -340,7 +344,7 @@ app.get('/.well-known/agent-card.json', (c) => {
   return c.json({
     name: 'ActionGuard Protocol Inspector Agent',
     description:
-      'Diff and poisoning detection for MCP servers: dual-hash fingerprinting to catch schema drift and poisoned tool descriptions before agents run them.',
+      'Diff and poisoning detection for MCP servers: catch schema drift and prompt poisoning.',
     version: '1.0.0',
     documentationUrl: 'https://actionguard.ai/docs',
     provider: {
