@@ -1,0 +1,49 @@
+name: CI & Protocol Verification Gate
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  schedule:
+    # Run daily at 06:00 UTC to continuously monitor for protocol & dependency regressions
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Lint, Test & Protocol Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Code Quality & Linting
+        run: pnpm lint
+
+      - name: Run Test Suite
+        run: pnpm test
+
+      - name: Build Monorepo & Composite Action
+        run: pnpm build
+
+      - name: Verify CLI Bundle Help
+        run: node bin/action.cjs --help
+
+      - name: Verify Compile Manifest Pipeline
+        run: node bin/action.cjs compile actionguard.json
