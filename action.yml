@@ -24,7 +24,7 @@ runs:
       shell: bash
       run: |
         if [ -n "${{ inputs.pinned_hash }}" ]; then
-          npx --yes @actionguard/cli check "${{ inputs.target_url }}" --pin "${{ inputs.pinned_hash }}"
+          node "${{ github.action_path }}/bin/action.cjs" check "${{ inputs.target_url }}" --pin "${{ inputs.pinned_hash }}"
         else
-          npx --yes @actionguard/cli inspect "${{ inputs.target_url }}"
+          node "${{ github.action_path }}/bin/action.cjs" inspect "${{ inputs.target_url }}"
         fi

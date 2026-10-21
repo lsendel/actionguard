@@ -42,5 +42,6 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          pnpm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}"
           pnpm --filter @actionguard/core publish --access public --no-git-checks
           pnpm --filter @actionguard/cli publish --access public --no-git-checks

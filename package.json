@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "pnpm --filter \"@actionguard/*\" build",
+    "build": "pnpm --filter \"@actionguard/*\" build && pnpm run build:action",
+    "build:action": "esbuild packages/cli/src/index.ts --bundle --platform=node --format=cjs --outfile=bin/action.cjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "biome check .",
@@ -12,6 +13,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "esbuild": "^0.28.2",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7",
     "wrangler": "^4.151.3"
