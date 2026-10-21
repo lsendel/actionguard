@@ -16,18 +16,14 @@ COPY packages/ ./packages/
 COPY apps/ ./apps/
 
 RUN pnpm --filter "@actionguard/*" build
+RUN pnpm --filter "@actionguard/cli" deploy --prod /app/deployed
 
 FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
-COPY --from=builder /app/packages/core/dist ./packages/core/dist
-COPY --from=builder /app/packages/core/package.json ./packages/core/package.json
-COPY --from=builder /app/packages/cli/dist ./packages/cli/dist
-COPY --from=builder /app/packages/cli/package.json ./packages/cli/package.json
-COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/deployed ./
 COPY server.json ./
 
-ENTRYPOINT ["node", "/app/packages/cli/dist/index.js", "mcp"]
+ENTRYPOINT ["node", "/app/dist/index.js", "mcp"]
