@@ -36,11 +36,17 @@ jobs:
       - name: Code Quality & Linting
         run: pnpm lint
 
+      - name: Build Monorepo & Composite Action
+        run: pnpm build
+
       - name: Run Test Suite
         run: pnpm test
 
-      - name: Build Monorepo & Composite Action
-        run: pnpm build
+      - name: Test ActionGuard Composite Action Gate
+        uses: ./
+        with:
+          target_url: 'https://actionguard.ai/mcp'
+          pinned_hash: '3f69ae34829caf02bd58d510778954714d3d9331b66ddf435fa24585450e6910'
 
       - name: Verify CLI Bundle Help
         run: node bin/action.cjs --help
