@@ -81,12 +81,15 @@ await client.connect(transport);`;
   <link rel="canonical" href="https://actionguard.ai/servers/${encodeURIComponent(service.slug)}" />
   
   <!-- OpenGraph / Social Meta Tags -->
-  <meta property="og:title" content="${escapeHtml(service.display_name)} MCP Server — Status & Verification" />
+  <meta property="og:title" content="${escapeHtml(service.display_name)} MCP Server — Status &amp; Verification" />
   <meta property="og:description" content="ActionGuard Protocol Audit: Grade ${service.overall_grade} &bull; ${service.verification_tier}" />
   <meta property="og:url" content="https://actionguard.ai/servers/${encodeURIComponent(service.slug)}" />
-  <meta property="og:type" content="article" />
-  <meta name="twitter:card" content="summary" />
+  <meta property="og:image" content="https://actionguard.ai/og/${encodeURIComponent(service.slug)}.svg" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(service.display_name)} MCP Server Verification" />
+  <meta name="twitter:description" content="ActionGuard Protocol Audit: Grade ${service.overall_grade} &bull; ${service.verification_tier}" />
+  <meta name="twitter:image" content="https://actionguard.ai/og/${encodeURIComponent(service.slug)}.svg" />
 
   <!-- Schema.org JSON-LD -->
   <script type="application/ld+json">

@@ -14,6 +14,7 @@ import { syncCrawlerCatalog } from './crawler.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
 import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
 import { createNewApiKey } from './keys.js';
+import { renderOgCardSvg } from './og.js';
 import { renderPlaygroundHtml } from './playground-ui.js';
 import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
@@ -686,6 +687,69 @@ app.get('/badge/:target', async (c) => {
     headers: {
       'Content-Type': 'image/svg+xml; charset=utf-8',
       'Cache-Control': 'public, max-age=300, s-maxage=3600',
+    },
+  });
+});
+
+// Dynamic OpenGraph 1200x630 Social Card
+app.get('/og/:target', async (c) => {
+  const rawTarget = c.req.param('target');
+  const slug = rawTarget.replace(/\.(svg|png)$/, '');
+
+  let title = 'ActionGuard.ai';
+  let domain = 'actionguard.ai';
+  let grade = 'A+';
+  let tier = 'Community Verified';
+  let schemaHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  let latencyMs = 120;
+
+  try {
+    if (c.env.actionguard_db) {
+      const row = await c.env.actionguard_db
+        .prepare(
+          `SELECT s.display_name, s.canonical_domain, s.overall_grade, s.verification_tier,
+                  e.current_schema_sha256, e.last_latency_ms
+           FROM services s
+           LEFT JOIN service_endpoints e ON s.id = e.service_id
+           WHERE s.slug = ? OR s.canonical_domain = ?
+           LIMIT 1`
+        )
+        .bind(slug, slug)
+        .first<{
+          display_name: string;
+          canonical_domain: string;
+          overall_grade: string;
+          verification_tier: string;
+          current_schema_sha256?: string;
+          last_latency_ms?: number;
+        }>();
+
+      if (row) {
+        title = row.display_name;
+        domain = row.canonical_domain;
+        grade = row.overall_grade || 'A+';
+        tier = row.verification_tier || 'Community Verified';
+        if (row.current_schema_sha256) schemaHash = row.current_schema_sha256;
+        if (row.last_latency_ms) latencyMs = row.last_latency_ms;
+      }
+    }
+  } catch {
+    // Fallback gracefully
+  }
+
+  const svg = renderOgCardSvg({
+    title,
+    domain,
+    grade,
+    tier,
+    schemaHash,
+    latencyMs,
+  });
+
+  return new Response(svg, {
+    headers: {
+      'Content-Type': 'image/svg+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600, s-maxage=86400',
     },
   });
 });
