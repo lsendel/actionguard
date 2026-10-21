@@ -102,6 +102,10 @@ INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current
 
 INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('org_llm_boost', 'LLM Boost AI-Readiness SEO', 'llm-boost', 'verified');
 INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('srv_llm_boost', 'org_llm_boost', 'llm-boost', 'LLM Boost MCP Server', 'mcp.llmrank.app', 'https://github.com/llm-boost/llmrank-app', 'Official Repository Verified', 'A+');
-INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('ep_llm_boost', 'srv_llm_boost', 'mcp_streamable_http', 'https://mcp.llmrank.app/mcp', 'c18d9609a473b648108a9f62c0b05bcfb0485b0d00f3408c10444317a6c9c647', '21e257850020a9a103328eefd229415c4d32066ca94c77174620f4ae8b2ff289', 'up', 88, datetime('now'));
+INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('ep_llm_boost', 'srv_llm_boost', 'mcp_streamable_http', 'https://mcp.llmrank.app/v1/mcp', '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945', 'up', 457, datetime('now'));
+
+INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('org_families_care', 'Families.Care Public Health & Caregiver Data', 'families-care', 'verified');
+INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('srv_families_care', 'org_families_care', 'families-care-mcp', 'Families.Care Dagster MCP Server', 'mcp.families.care', 'https://github.com/lsendel/families.care', 'Official Repository Verified', 'A+');
+INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('ep_families_care', 'srv_families_care', 'mcp_streamable_http', 'https://mcp.families.care/mcp', 'bf38eb4b0797c4e991f80e30e7114ca66676972201674dfe68c7b60606efc9e3', '6f8a6abaa89aaee4f75692a7cc6f623009b32c5cc50de2e8d5cef277aa5ee0d6', 'up', 112, datetime('now'));
 
 
