@@ -100,3 +100,8 @@ INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('org_actiong
 INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('srv_actionguard_reference', 'org_actionguard_reference', 'actionguard-reference', 'ActionGuard Reference MCP Server', 'demo.actionguard.ai', 'https://github.com/actionguard/mcp-demo', 'Unverified (curated listing)', 'Pending');
 INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('ep_actionguard_reference', 'srv_actionguard_reference', 'mcp_streamable_http', 'https://demo.actionguard.ai/mcp', NULL, NULL, 'unknown', NULL, NULL);
 
+INSERT OR REPLACE INTO organizations (id, name, slug, tier) VALUES ('org_llm_boost', 'LLM Boost AI-Readiness SEO', 'llm-boost', 'verified');
+INSERT OR REPLACE INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, verification_tier, overall_grade) VALUES ('srv_llm_boost', 'org_llm_boost', 'llm-boost', 'LLM Boost MCP Server', 'mcp.llmrank.app', 'https://github.com/llm-boost/llmrank-app', 'Official Repository Verified', 'A+');
+INSERT OR REPLACE INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at) VALUES ('ep_llm_boost', 'srv_llm_boost', 'mcp_streamable_http', 'https://mcp.llmrank.app/mcp', 'c18d9609a473b648108a9f62c0b05bcfb0485b0d00f3408c10444317a6c9c647', '21e257850020a9a103328eefd229415c4d32066ca94c77174620f4ae8b2ff289', 'up', 88, datetime('now'));
+
+
