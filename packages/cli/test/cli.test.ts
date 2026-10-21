@@ -121,4 +121,24 @@ describe('ActionGuard CLI', () => {
       execSync(`node ${CLI_PATH} check https://example.com/mcp`, { stdio: 'pipe' });
     }).toThrow();
   });
+
+  it('initializes a project with manifests and CI workflow on actionguard init', () => {
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ag-init-test-'));
+    const output = execSync(`node ${CLI_PATH} init --name test-project`, {
+      cwd: tempDir,
+      encoding: 'utf8',
+    });
+
+    expect(output).toContain('Initializing ActionGuard');
+    expect(output).toContain('actionguard.json');
+    expect(output).toContain('server.json');
+    expect(output).toContain('verify-mcp.yml');
+
+    expect(fs.existsSync(path.join(tempDir, 'actionguard.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, 'server.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tempDir, '.github/workflows/verify-mcp.yml'))).toBe(true);
+
+    // Clean up
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
 });

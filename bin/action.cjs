@@ -4226,48 +4226,6 @@ async function computeDualHash(tools) {
   };
 }
 
-// packages/core/dist/linter/token-bloat.js
-var TOKEN_BLOAT_WARN_THRESHOLD = 2500;
-var TOKEN_BLOAT_FAIL_THRESHOLD = 5e3;
-function estimateTokenCount(text) {
-  return Math.ceil(text.length / 4);
-}
-function calculateToolTokenCost(tools) {
-  const jsonStr = JSON.stringify(tools);
-  return estimateTokenCount(jsonStr);
-}
-function lintTokenBloat(tools) {
-  const tokenCost = calculateToolTokenCost(tools);
-  if (tokenCost > TOKEN_BLOAT_FAIL_THRESHOLD) {
-    return {
-      id: "token_bloat_critical",
-      stage: "schema",
-      title: "Context Token Footprint Exceeded",
-      status: "fail",
-      message: `Your tool schemas consume ~${tokenCost.toLocaleString()} tokens per conversation turn. This exceeds the recommended limit (${TOKEN_BLOAT_FAIL_THRESHOLD.toLocaleString()} tokens) and will significantly slow down agents and increase inference costs.`,
-      details: { tokenCost, threshold: TOKEN_BLOAT_FAIL_THRESHOLD }
-    };
-  }
-  if (tokenCost > TOKEN_BLOAT_WARN_THRESHOLD) {
-    return {
-      id: "token_bloat_warning",
-      stage: "schema",
-      title: "High Context Token Footprint",
-      status: "warn",
-      message: `Your tool schemas consume ~${tokenCost.toLocaleString()} tokens per conversation turn. Consider splitting tools into specialized sub-servers or compacting parameter documentation.`,
-      details: { tokenCost, threshold: TOKEN_BLOAT_WARN_THRESHOLD }
-    };
-  }
-  return {
-    id: "token_bloat_healthy",
-    stage: "schema",
-    title: "Context Token Footprint",
-    status: "pass",
-    message: `Context footprint is compact (~${tokenCost.toLocaleString()} tokens for ${tools.length} tool${tools.length === 1 ? "" : "s"}).`,
-    details: { tokenCost }
-  };
-}
-
 // packages/core/dist/linter/prompt-injection.js
 var INJECTION_PATTERNS = [
   {
@@ -4352,6 +4310,48 @@ function lintPromptInjection(tools) {
     });
   }
   return findings;
+}
+
+// packages/core/dist/linter/token-bloat.js
+var TOKEN_BLOAT_WARN_THRESHOLD = 2500;
+var TOKEN_BLOAT_FAIL_THRESHOLD = 5e3;
+function estimateTokenCount(text) {
+  return Math.ceil(text.length / 4);
+}
+function calculateToolTokenCost(tools) {
+  const jsonStr = JSON.stringify(tools);
+  return estimateTokenCount(jsonStr);
+}
+function lintTokenBloat(tools) {
+  const tokenCost = calculateToolTokenCost(tools);
+  if (tokenCost > TOKEN_BLOAT_FAIL_THRESHOLD) {
+    return {
+      id: "token_bloat_critical",
+      stage: "schema",
+      title: "Context Token Footprint Exceeded",
+      status: "fail",
+      message: `Your tool schemas consume ~${tokenCost.toLocaleString()} tokens per conversation turn. This exceeds the recommended limit (${TOKEN_BLOAT_FAIL_THRESHOLD.toLocaleString()} tokens) and will significantly slow down agents and increase inference costs.`,
+      details: { tokenCost, threshold: TOKEN_BLOAT_FAIL_THRESHOLD }
+    };
+  }
+  if (tokenCost > TOKEN_BLOAT_WARN_THRESHOLD) {
+    return {
+      id: "token_bloat_warning",
+      stage: "schema",
+      title: "High Context Token Footprint",
+      status: "warn",
+      message: `Your tool schemas consume ~${tokenCost.toLocaleString()} tokens per conversation turn. Consider splitting tools into specialized sub-servers or compacting parameter documentation.`,
+      details: { tokenCost, threshold: TOKEN_BLOAT_WARN_THRESHOLD }
+    };
+  }
+  return {
+    id: "token_bloat_healthy",
+    stage: "schema",
+    title: "Context Token Footprint",
+    status: "pass",
+    message: `Context footprint is compact (~${tokenCost.toLocaleString()} tokens for ${tools.length} tool${tools.length === 1 ? "" : "s"}).`,
+    details: { tokenCost }
+  };
 }
 
 // packages/core/dist/linter/schema-strictness.js
@@ -5016,18 +5016,110 @@ function printHelp() {
 \x1B[1m\x1B[34mActionGuard.ai CLI\x1B[0m \u2014 Verification & Schema Drift Detection for AI Agents
 
 \x1B[1mUSAGE:\x1B[0m
+  actionguard init [--name <name>]          Initialize ActionGuard manifests & GitHub Action in project
   actionguard inspect <url>                 Run 5-stage live protocol & security audit
   actionguard compile [manifest.json]       Compile actionguard.json to MCP, A2A & DNS-AID
   actionguard check <url> --pin <hash>      CI/CD gate: exit 1 if remote schema drifts
   actionguard mcp                           Run as Model Context Protocol (MCP) stdio server
   actionguard help                          Show this help message
 
+\x1B[1mOPTIONS:\x1B[0m
+  --pin <hash>             Expected schema_sha256 digest to enforce
+  --format <json|sarif>    Output machine-readable report format
+  --header <name:value>    Custom HTTP header for authenticated endpoints
+
 \x1B[1mEXAMPLES:\x1B[0m
+  npx actionguard init
   npx actionguard inspect https://example.com/mcp
   npx actionguard compile ./actionguard.json
-  npx actionguard check https://api.where.care/mcp --pin 4f53cda18c2b...
+  npx actionguard check https://mcp.llmrank.app/v1/mcp --pin 4f53cda18c2b...
+  npx actionguard check https://api.where.care/mcp --pin 4f53cda18c2b... --format sarif
   npx actionguard mcp
 `);
+}
+async function handleInit(customName) {
+  const cwd = process.cwd();
+  console.log("\n\x1B[36m\u26A1 Initializing ActionGuard for project...\x1B[0m\n");
+  let projectName = customName;
+  let description = "Model Context Protocol (MCP) server";
+  let repoUrl;
+  const pkgPath = import_node_path.default.join(cwd, "package.json");
+  if (import_node_fs.default.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(import_node_fs.default.readFileSync(pkgPath, "utf8"));
+      if (!projectName && pkg.name) {
+        projectName = pkg.name.replace(/^@[^/]+\//, "");
+      }
+      if (pkg.description) description = pkg.description;
+      if (pkg.repository) {
+        repoUrl = typeof pkg.repository === "string" ? pkg.repository : pkg.repository.url;
+      }
+    } catch {
+    }
+  }
+  if (!projectName) {
+    projectName = import_node_path.default.basename(cwd).toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+  }
+  const title = projectName.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const manifestPath = import_node_path.default.join(cwd, "actionguard.json");
+  if (!import_node_fs.default.existsSync(manifestPath)) {
+    const starterManifest = {
+      $schema: "https://actionguard.ai/schemas/v1/manifest.schema.json",
+      name: projectName,
+      title: `${title} MCP Server`,
+      description,
+      version: "1.0.0",
+      domain: `${projectName}.internal`,
+      ...repoUrl ? { repository: { url: repoUrl, source: "github" } } : {},
+      endpoints: [
+        {
+          protocol: "mcp",
+          transport: "streamable-http",
+          url: "http://localhost:3000/mcp"
+        }
+      ],
+      capabilities: {
+        tools: []
+      }
+    };
+    import_node_fs.default.writeFileSync(manifestPath, JSON.stringify(starterManifest, null, 2));
+    console.log("  \x1B[32m\u2714\x1B[0m Generated \x1B[1mactionguard.json\x1B[0m");
+  } else {
+    console.log("  \x1B[33m\u2139\x1B[0m Found existing \x1B[1mactionguard.json\x1B[0m");
+  }
+  await handleCompile("actionguard.json");
+  const workflowDir = import_node_path.default.join(cwd, ".github", "workflows");
+  import_node_fs.default.mkdirSync(workflowDir, { recursive: true });
+  const workflowPath = import_node_path.default.join(workflowDir, "verify-mcp.yml");
+  if (!import_node_fs.default.existsSync(workflowPath)) {
+    const workflowYaml = `name: ActionGuard MCP Schema Gate
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  verify-mcp:
+    name: Verify Upstream MCP Tools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Upstream MCP Tools with ActionGuard
+        uses: lsendel/actionguard@v1
+        with:
+          target_url: 'https://example.com/mcp'
+          # pinned_hash: 'expected-schema-sha256'
+`;
+    import_node_fs.default.writeFileSync(workflowPath, workflowYaml);
+    console.log("  \x1B[32m\u2714\x1B[0m Generated \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m (CI Gate)");
+  } else {
+    console.log("  \x1B[33m\u2139\x1B[0m Found existing \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m");
+  }
+  console.log("\n\x1B[32m\u{1F389} ActionGuard onboarding complete!\x1B[0m");
+  console.log("Next steps:");
+  console.log("  1. Inspect your live server:  \x1B[36mactionguard inspect <url>\x1B[0m");
+  console.log("  2. Lock your schema in CI:    \x1B[36mactionguard check <url> --pin <hash>\x1B[0m");
+  console.log("  3. Claim your domain badge:   \x1B[36mhttps://actionguard.ai/verify\x1B[0m\n");
 }
 async function handleInspect(targetUrl) {
   if (!targetUrl) {
@@ -5111,35 +5203,124 @@ async function handleCompile(manifestPath = "actionguard.json") {
     process.exit(1);
   }
 }
-async function handleCheck(targetUrl, pinnedHash) {
+function generateSarifReport(report, pinnedHash) {
+  const rules = report.findings.map((f) => ({
+    id: f.id,
+    name: f.title,
+    shortDescription: { text: f.message },
+    defaultConfiguration: {
+      level: f.status === "fail" ? "error" : f.status === "warn" ? "warning" : "note"
+    }
+  }));
+  const results = report.findings.filter((f) => f.status === "fail" || f.status === "warn").map((f) => ({
+    ruleId: f.id,
+    level: f.status === "fail" ? "error" : "warning",
+    message: { text: f.message },
+    locations: [
+      {
+        physicalLocation: {
+          artifactLocation: { uri: report.targetUrl }
+        }
+      }
+    ]
+  }));
+  if (pinnedHash && report.hashes.schema_sha256 !== pinnedHash) {
+    results.unshift({
+      ruleId: "AG-DRIFT-001",
+      level: "error",
+      message: {
+        text: `Breaking schema drift detected: Expected ${pinnedHash}, observed ${report.hashes.schema_sha256}`
+      },
+      locations: [
+        {
+          physicalLocation: {
+            artifactLocation: { uri: report.targetUrl }
+          }
+        }
+      ]
+    });
+  }
+  return {
+    $schema: "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+    version: "2.1.0",
+    runs: [
+      {
+        tool: {
+          driver: {
+            name: "ActionGuard",
+            version: "1.0.0",
+            informationUri: "https://actionguard.ai",
+            rules
+          }
+        },
+        results
+      }
+    ]
+  };
+}
+async function handleCheck(targetUrl, pinnedHash, format = "text") {
   if (!targetUrl || !pinnedHash) {
     console.error("\x1B[31mError: Target URL and --pin <hash> are required.\x1B[0m");
     process.exit(1);
     return;
   }
-  console.log(
-    `
+  if (format === "text") {
+    console.log(
+      `
 \x1B[36mCI Gate: Checking ${targetUrl} against pinned hash:\x1B[0m ${pinnedHash} ...
 `
-  );
+    );
+  }
   try {
     const report = await runInspection(targetUrl);
-    if (report.hashes.schema_sha256 !== pinnedHash) {
-      console.error("\x1B[31m[FAILED CI GATE]\x1B[0m Schema hash mismatch!");
-      console.error(`  Expected: ${pinnedHash}`);
-      console.error(`  Observed: ${report.hashes.schema_sha256}`);
-      console.error("\nThe upstream endpoint has drifted or broken its schema contract.");
+    const hasDrift = report.hashes.schema_sha256 !== pinnedHash;
+    const hasSecurityFailures = report.score.failCount > 0;
+    const isGithub = process.env.GITHUB_ACTIONS === "true";
+    if (format === "json") {
+      console.log(JSON.stringify(report, null, 2));
+    } else if (format === "sarif") {
+      console.log(JSON.stringify(generateSarifReport(report, pinnedHash), null, 2));
+    }
+    if (hasDrift) {
+      if (isGithub) {
+        console.log(
+          `::error title=ActionGuard Schema Drift::Upstream schema hash mismatch! Expected ${pinnedHash}, observed ${report.hashes.schema_sha256}`
+        );
+      }
+      if (format === "text") {
+        console.error("\x1B[31m[FAILED CI GATE]\x1B[0m Schema hash mismatch!");
+        console.error(`  Expected: ${pinnedHash}`);
+        console.error(`  Observed: ${report.hashes.schema_sha256}`);
+        console.error("\nThe upstream endpoint has drifted or broken its schema contract.");
+      }
       process.exit(1);
     }
-    if (report.score.failCount > 0) {
-      console.error("\x1B[31m[FAILED CI GATE]\x1B[0m Security or protocol checks failed.");
+    if (hasSecurityFailures) {
+      if (isGithub) {
+        console.log(
+          `::error title=ActionGuard Protocol Failure::Security or protocol checks failed on ${targetUrl}.`
+        );
+      }
+      if (format === "text") {
+        console.error("\x1B[31m[FAILED CI GATE]\x1B[0m Security or protocol checks failed.");
+      }
       process.exit(1);
     }
-    console.log(
-      "\x1B[32m\u2714 [PASSED CI GATE]\x1B[0m Schema matches pinned hash. 0 security failures.\n"
-    );
+    if (isGithub) {
+      console.log(
+        `::notice title=ActionGuard Passed::Schema matches pinned hash (${pinnedHash.substring(0, 12)}...) with 0 security failures.`
+      );
+    }
+    if (format === "text") {
+      console.log(
+        "\x1B[32m\u2714 [PASSED CI GATE]\x1B[0m Schema matches pinned hash. 0 security failures.\n"
+      );
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    if (process.env.GITHUB_ACTIONS === "true") {
+      console.log(`::error title=ActionGuard Error::${msg}`);
+    }
     console.error(`\x1B[31mCheck failed:\x1B[0m ${msg}`);
     process.exit(1);
   }
@@ -5302,14 +5483,20 @@ async function main() {
     printHelp();
     return;
   }
-  if (command === "inspect") {
+  if (command === "init") {
+    const nameIdx = args.indexOf("--name");
+    const customName = nameIdx !== -1 ? args[nameIdx + 1] : void 0;
+    await handleInit(customName);
+  } else if (command === "inspect") {
     await handleInspect(args[1]);
   } else if (command === "compile") {
     await handleCompile(args[1]);
   } else if (command === "check") {
     const pinIdx = args.indexOf("--pin");
     const pinHash = pinIdx !== -1 ? args[pinIdx + 1] : void 0;
-    await handleCheck(args[1], pinHash);
+    const formatIdx = args.indexOf("--format");
+    const format = formatIdx !== -1 ? args[formatIdx + 1] : "text";
+    await handleCheck(args[1], pinHash, format);
   } else if (command === "mcp" || command === "server") {
     await handleMcpStdio();
   } else {

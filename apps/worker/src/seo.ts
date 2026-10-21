@@ -16,6 +16,7 @@ export function renderSitemapXml(services: Array<{ slug: string; created_at: str
   const staticUrls = [
     { loc: 'https://actionguard.ai/', priority: '1.0', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/index', priority: '0.9', changefreq: 'hourly' },
+    { loc: 'https://actionguard.ai/diff', priority: '0.9', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/pricing', priority: '0.9', changefreq: 'weekly' },
     { loc: 'https://actionguard.ai/playground', priority: '0.9', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/verify', priority: '0.8', changefreq: 'weekly' },

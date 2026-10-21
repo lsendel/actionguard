@@ -221,6 +221,7 @@ export function renderHomepageHtml(): string {
     </a>
     <div class="nav-links">
       <a href="/index" class="nav-link">Reliability Index</a>
+      <a href="/diff" class="nav-link" style="color:#60a5fa;font-weight:700;">Diff Inspector</a>
       <a href="/playground" class="nav-link">Playground</a>
       <a href="/verify" class="nav-link">Verify Domain</a>
       <a href="/pricing" class="nav-link">Pricing</a>

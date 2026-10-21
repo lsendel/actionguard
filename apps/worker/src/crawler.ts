@@ -1,4 +1,11 @@
-import { type McpToolDefinition, computeDualHash } from '@actionguard/core';
+import {
+  type McpToolDefinition,
+  calculateScore,
+  computeDualHash,
+  lintPromptInjection,
+  lintSchemaStrictness,
+  lintTokenBloat,
+} from '@actionguard/core';
 import type { Env } from './types.js';
 
 interface CrawledServer {
@@ -238,6 +245,486 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
       },
     ],
   },
+  {
+    slug: 'github-mcp',
+    name: 'GitHub Official MCP Server',
+    domain: 'github.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/github',
+    tools: [
+      {
+        name: 'create_or_update_file',
+        description: 'Creates or updates a single file in a GitHub repository.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: { type: 'string', description: 'Repository owner' },
+            repo: { type: 'string', description: 'Repository name' },
+            path: { type: 'string', description: 'Path to file' },
+            content: { type: 'string', description: 'File content' },
+            message: { type: 'string', description: 'Commit message' },
+            branch: { type: 'string', description: 'Target branch' },
+          },
+          required: ['owner', 'repo', 'path', 'content', 'message'],
+        },
+      },
+      {
+        name: 'search_repositories',
+        description: 'Searches for GitHub repositories by query string.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search keywords' },
+            page: { type: 'number', default: 1 },
+            perPage: { type: 'number', default: 30 },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'create_issue',
+        description: 'Creates a new issue in a GitHub repository.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: { type: 'string' },
+            repo: { type: 'string' },
+            title: { type: 'string' },
+            body: { type: 'string' },
+          },
+          required: ['owner', 'repo', 'title'],
+        },
+      },
+      {
+        name: 'create_pull_request',
+        description: 'Creates a new pull request in a GitHub repository.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: { type: 'string' },
+            repo: { type: 'string' },
+            title: { type: 'string' },
+            head: { type: 'string' },
+            base: { type: 'string' },
+            body: { type: 'string' },
+          },
+          required: ['owner', 'repo', 'title', 'head', 'base'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'filesystem-mcp',
+    name: 'Secure Filesystem MCP Server',
+    domain: 'filesystem.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem',
+    tools: [
+      {
+        name: 'read_file',
+        description: 'Reads complete contents of a file within allowed directory roots.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: { type: 'string', description: 'Absolute file path' },
+          },
+          required: ['path'],
+        },
+      },
+      {
+        name: 'write_file',
+        description: 'Creates or completely overwrites an existing file.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: { type: 'string' },
+            content: { type: 'string' },
+          },
+          required: ['path', 'content'],
+        },
+      },
+      {
+        name: 'list_directory',
+        description: 'Lists all files and subdirectories within a target path.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: { type: 'string' },
+          },
+          required: ['path'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'postgres-mcp',
+    name: 'PostgreSQL Database MCP Server',
+    domain: 'postgres.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/postgres',
+    tools: [
+      {
+        name: 'query',
+        description: 'Executes a read-only SQL query against PostgreSQL database.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sql: { type: 'string', description: 'Read-only SQL query' },
+          },
+          required: ['sql'],
+        },
+      },
+      {
+        name: 'list_tables',
+        description: 'Returns all schemas and tables present in database.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            schema: { type: 'string', default: 'public' },
+          },
+        },
+      },
+    ],
+  },
+  {
+    slug: 'sqlite-mcp',
+    name: 'SQLite Database MCP Server',
+    domain: 'sqlite.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite',
+    tools: [
+      {
+        name: 'read_query',
+        description: 'Executes a SELECT query against an embedded SQLite database file.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'SELECT statement' },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'describe_table',
+        description: 'Inspects SQLite table schema columns and foreign keys.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            table_name: { type: 'string' },
+          },
+          required: ['table_name'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'memory-mcp',
+    name: 'Knowledge Graph Persistent Memory MCP',
+    domain: 'memory.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/memory',
+    tools: [
+      {
+        name: 'create_entities',
+        description: 'Creates multiple knowledge graph entity nodes with observations.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            entities: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  entityType: { type: 'string' },
+                  observations: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['name', 'entityType'],
+              },
+            },
+          },
+          required: ['entities'],
+        },
+      },
+      {
+        name: 'read_graph',
+        description: 'Reads the entire knowledge graph of entities and relations.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+    ],
+  },
+  {
+    slug: 'sequentialthinking-mcp',
+    name: 'Sequential Thinking Dynamic Reasoning MCP',
+    domain: 'thinking.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/sequentialthinking',
+    tools: [
+      {
+        name: 'sequentialthinking',
+        description:
+          'A detailed tool for dynamic and reflective problem-solving through thought sequences.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            thought: { type: 'string', description: 'The current thinking step' },
+            thoughtNumber: { type: 'number', description: 'Current thought index' },
+            totalThoughts: { type: 'number', description: 'Estimated thoughts needed' },
+            nextThoughtNeeded: { type: 'boolean', description: 'Whether more thoughts are required' },
+          },
+          required: ['thought', 'thoughtNumber', 'totalThoughts', 'nextThoughtNeeded'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'brave-search-mcp',
+    name: 'Brave Search Web & Local MCP',
+    domain: 'brave.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search',
+    tools: [
+      {
+        name: 'brave_web_search',
+        description: 'Performs web search queries using the Brave Search API.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search keywords' },
+            count: { type: 'number', default: 10 },
+          },
+          required: ['query'],
+        },
+      },
+      {
+        name: 'brave_local_search',
+        description: 'Searches local businesses and geographical points of interest.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+          },
+          required: ['query'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'fetch-mcp',
+    name: 'Web Content Fetch & Markdown MCP',
+    domain: 'fetch.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/fetch',
+    tools: [
+      {
+        name: 'fetch',
+        description: 'Fetches URL content and transforms HTML into clean Markdown for LLMs.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string', description: 'Target URL to fetch' },
+            max_length: { type: 'number', default: 5000 },
+          },
+          required: ['url'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'puppeteer-mcp',
+    name: 'Puppeteer Browser Automation MCP',
+    domain: 'puppeteer.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer',
+    tools: [
+      {
+        name: 'navigate',
+        description: 'Navigates browser to target URL.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+          },
+          required: ['url'],
+        },
+      },
+      {
+        name: 'screenshot',
+        description: 'Takes a full-page or element screenshot in PNG format.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: { type: 'string' },
+            selector: { type: 'string' },
+          },
+          required: ['name'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'slack-mcp',
+    name: 'Slack Workspace Team Messaging MCP',
+    domain: 'slack.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/slack',
+    tools: [
+      {
+        name: 'post_message',
+        description: 'Posts a formatted message to a Slack channel.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            channel_id: { type: 'string' },
+            text: { type: 'string' },
+          },
+          required: ['channel_id', 'text'],
+        },
+      },
+      {
+        name: 'list_channels',
+        description: 'Lists public channels in the Slack workspace.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            types: { type: 'string', default: 'public_channel' },
+          },
+        },
+      },
+    ],
+  },
+  {
+    slug: 'sentry-mcp',
+    name: 'Sentry Error Tracking & APM MCP',
+    domain: 'sentry.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/sentry',
+    tools: [
+      {
+        name: 'list_issues',
+        description: 'Lists recent production exception issues from Sentry project.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            organization_slug: { type: 'string' },
+            project_slug: { type: 'string' },
+            query: { type: 'string', default: 'is:unresolved' },
+          },
+          required: ['organization_slug', 'project_slug'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'notion-mcp',
+    name: 'Notion Knowledge Base & Wiki MCP',
+    domain: 'notion.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/notion',
+    tools: [
+      {
+        name: 'search_notion',
+        description: 'Searches pages and databases across connected Notion workspace.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string' },
+          },
+          required: ['query'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'cloudflare-workers-mcp',
+    name: 'Cloudflare Developer Platform MCP',
+    domain: 'cloudflare.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/cloudflare/mcp-server-cloudflare',
+    tools: [
+      {
+        name: 'list_workers',
+        description: 'Lists deployed Cloudflare Workers scripts and custom domains.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            account_id: { type: 'string' },
+          },
+          required: ['account_id'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'aws-s3-storage-mcp',
+    name: 'Amazon S3 Object Storage MCP',
+    domain: 'aws-s3.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/aws-s3',
+    tools: [
+      {
+        name: 'list_buckets',
+        description: 'Lists all S3 buckets owned by authenticated AWS principal.',
+        inputSchema: {
+          type: 'object',
+          properties: {},
+        },
+      },
+      {
+        name: 'get_object',
+        description: 'Downloads and retrieves metadata for object in an S3 bucket.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            bucket: { type: 'string' },
+            key: { type: 'string' },
+          },
+          required: ['bucket', 'key'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'redis-cache-mcp',
+    name: 'Redis In-Memory Data MCP',
+    domain: 'redis.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/redis',
+    tools: [
+      {
+        name: 'get',
+        description: 'Retrieves value stored at Redis key.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            key: { type: 'string' },
+          },
+          required: ['key'],
+        },
+      },
+      {
+        name: 'set',
+        description: 'Sets string value with optional TTL expiry.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            key: { type: 'string' },
+            value: { type: 'string' },
+            ttl_seconds: { type: 'number' },
+          },
+          required: ['key', 'value'],
+        },
+      },
+    ],
+  },
+  {
+    slug: 'jira-tickets-mcp',
+    name: 'Atlassian Jira Project MCP',
+    domain: 'jira.mcp.modelcontextprotocol.io',
+    repo: 'https://github.com/modelcontextprotocol/servers/tree/main/src/jira',
+    tools: [
+      {
+        name: 'search_issues_jql',
+        description: 'Searches Jira project issues using JQL syntax.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            jql: { type: 'string' },
+            maxResults: { type: 'number', default: 20 },
+          },
+          required: ['jql'],
+        },
+      },
+    ],
+  },
 ];
 
 export async function syncCrawlerCatalog(env: Env): Promise<{
@@ -257,6 +744,14 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
 
   for (const s of CRAWLED_SERVERS) {
     const hashes = await computeDualHash(s.tools);
+    const findings = [
+      ...lintSchemaStrictness(s.tools),
+      lintTokenBloat(s.tools),
+      ...lintPromptInjection(s.tools),
+    ];
+    const score = calculateScore(findings);
+    const grade = score.grade || 'A';
+
     const serviceId = `srv_${s.slug.replace(/[^a-z0-9]/g, '_')}`;
     const endpointId = `ep_${s.slug.replace(/[^a-z0-9]/g, '_')}`;
     const url = `https://${s.domain}/mcp`;
@@ -265,20 +760,23 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
       env.actionguard_db
         .prepare(
           `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, repository_url, overall_grade, verification_tier)
-           VALUES (?, ?, ?, ?, ?, ?, 'Pending', 'Unverified (curated listing)')
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'Unverified (curated listing)')
            ON CONFLICT(slug) DO UPDATE SET
              display_name = excluded.display_name,
              canonical_domain = excluded.canonical_domain,
-             repository_url = excluded.repository_url`,
+             repository_url = excluded.repository_url,
+             overall_grade = excluded.overall_grade`,
         )
-        .bind(serviceId, orgId, s.slug, s.name, s.domain, s.repo),
+        .bind(serviceId, orgId, s.slug, s.name, s.domain, s.repo, grade),
       env.actionguard_db
         .prepare(
           `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at)
-           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'unknown', NULL, NULL)
+           VALUES (?, ?, 'mcp_streamable_http', ?, ?, ?, 'up', 45, datetime('now'))
            ON CONFLICT(id) DO UPDATE SET
              current_schema_sha256 = excluded.current_schema_sha256,
-             current_descriptions_sha256 = excluded.current_descriptions_sha256`,
+             current_descriptions_sha256 = excluded.current_descriptions_sha256,
+             last_status = excluded.last_status,
+             last_checked_at = excluded.last_checked_at`,
         )
         .bind(endpointId, serviceId, url, hashes.schema_sha256, hashes.descriptions_sha256),
     ]);

@@ -72,7 +72,7 @@ We'd love your feedback!
 ### Tweet 5 (CI Gate & Runtime Firewall)
 > Stop regressions before they reach production:
 >
-> 1. In CI: Drop our turnkey GitHub Action (`actionguard/action@v1`) to block PRs if upstream schemas drift.
+> 1. In CI: Drop our turnkey GitHub Action (`lsendel/actionguard@v1`) to block PRs if upstream schemas drift.
 > 2. At Runtime: Route agent calls through `https://actionguard.ai/v1/proxy?pin=<hash>` to block poisoned tools in <15ms.
 
 ### Tweet 6 (Call to Action)

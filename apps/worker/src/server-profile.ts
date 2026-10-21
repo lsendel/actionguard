@@ -75,7 +75,7 @@ export function renderServerProfileHtml(service: {
 
   // Code integration snippets (only populated when a valid pinned schema hash exists)
   const githubActionYaml = hasSchemaPin
-    ? `- name: Verify Upstream MCP Tools\n  uses: actionguard/action@v1\n  with:\n    target_url: '${targetUrl}'\n    pinned_hash: '${pinnedHash}'`
+    ? `- name: Verify Upstream MCP Tools\n  uses: lsendel/actionguard@v1\n  with:\n    target_url: '${targetUrl}'\n    pinned_hash: '${pinnedHash}'`
     : '';
 
   const claudeDesktopConfig = hasSchemaPin
@@ -347,7 +347,9 @@ export function renderServerProfileHtml(service: {
     <a href="/" class="logo">Action<span>Guard</span>.ai</a>
     <div style="display:flex;gap:16px;align-items:center;">
       <a href="/index" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Reliability Index</a>
+      <a href="/diff" style="color:#60a5fa;text-decoration:none;font-size:14px;font-weight:600;">Diff Inspector</a>
       <a href="/verify" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Verify Domain</a>
+      <a href="/pricing" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Pricing</a>
       <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Docs</a>
     </div>
   </header>
@@ -403,6 +405,23 @@ export function renderServerProfileHtml(service: {
             : ''
         }
       </div>
+    </div>
+
+    <!-- Cryptographic Baseline & Diff Inspector Card -->
+    <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <span style="font-size:16px;">🔍</span>
+          <h3 style="font-size:16px;font-weight:700;color:#fff;">Cryptographic Dual-Hash Baseline</h3>
+          <span style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;">ACTIVE MONITOR</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;">
+          Dual-Hash fingerprints protect your agents against breaking schema drift and silent prompt poisoning.
+        </p>
+      </div>
+      <a href="/diff" style="background:#2563eb;color:#fff;text-decoration:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:background 0.15s;">
+        Inspect in Diff Viewer &rarr;
+      </a>
     </div>
 
     <!-- Real-Time Drift Alerts Watchlist Card -->

@@ -9,6 +9,12 @@ export {
   computeDualHash,
 } from './hashing/dual-hash.js';
 export { diffToolSets } from './hashing/diff.js';
+export {
+  diffToolCatalogs,
+  type ParamChange,
+  type ToolDiff,
+  type CatalogDiffReport,
+} from './linter/diff.js';
 
 // Linters
 export {

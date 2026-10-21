@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Upstream MCP Tools
-        uses: actionguard/action@v1
+        uses: lsendel/actionguard@v1
         with:
           target_url: 'https://api.where.care/mcp'
           pinned_hash: '81d36f5215b689d6f100cfe77096fbe8d113c304c0dd8374d69a84678fb69415'

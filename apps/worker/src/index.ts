@@ -4,6 +4,7 @@ import {
   type UptimeStats,
   calculateUptimeStats,
   computeDualHash,
+  diffToolCatalogs,
   diffToolSets,
   lintPromptInjection,
   runInspection,
@@ -13,6 +14,7 @@ import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { renderBadgeSvg } from './badges.js';
 import { syncCrawlerCatalog } from './crawler.js';
+import { renderDiffPage } from './diff-ui.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
 import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
 import { createNewApiKey } from './keys.js';
@@ -313,6 +315,38 @@ app.post('/api/playground/analyze', async (c) => {
 app.post('/api/catalog/sync', async (c) => {
   const result = await syncCrawlerCatalog(c.env);
   return c.json(result);
+});
+
+// Visual Schema & Prompt Diff Inspector Page
+app.get('/diff', (c) => {
+  return c.html(renderDiffPage());
+});
+
+// API: Detailed Schema & Prompt Diff Engine
+app.post('/api/diff', async (c) => {
+  const body = await c.req
+    .json<{
+      baseTools?: McpToolDefinition[];
+      candTools?: McpToolDefinition[];
+    }>()
+    .catch(() => null);
+
+  if (!body || !body.baseTools || !body.candTools) {
+    return c.json({ error: 'Valid baseTools and candTools arrays required' }, 400);
+  }
+
+  const [baselineHashes, candidateHashes] = await Promise.all([
+    computeDualHash(body.baseTools),
+    computeDualHash(body.candTools),
+  ]);
+
+  const report = diffToolCatalogs(body.baseTools, body.candTools);
+
+  return c.json({
+    baselineHashes,
+    candidateHashes,
+    report,
+  });
 });
 
 // Official MCP Registry Metadata (/server.json)
