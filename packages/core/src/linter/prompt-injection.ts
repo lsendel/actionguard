@@ -18,6 +18,7 @@ const INJECTION_PATTERNS: Array<{ regex: RegExp; name: string; severity: 'fail' 
     severity: 'fail',
   },
   {
+    // biome-ignore lint/suspicious/noMisleadingCharacterClass: intentional security scan for zero-width characters
     regex: /[\u200B-\u200D\uFEFF]/, // Zero-width spaces and invisible characters
     name: 'Hidden Zero-Width Unicode Characters',
     severity: 'fail',
@@ -50,7 +51,9 @@ export function lintPromptInjection(tools: McpToolDefinition[]): LintFinding[] {
     }
 
     // Traverse inputSchema properties
-    const props = tool.inputSchema?.properties as Record<string, { description?: string }> | undefined;
+    const props = tool.inputSchema?.properties as
+      | Record<string, { description?: string }>
+      | undefined;
     if (props && typeof props === 'object') {
       for (const [propName, propVal] of Object.entries(props)) {
         if (propVal && typeof propVal.description === 'string') {
@@ -84,7 +87,8 @@ export function lintPromptInjection(tools: McpToolDefinition[]): LintFinding[] {
       stage: 'security',
       title: 'Prompt Injection & Tool Poisoning Audit',
       status: 'pass',
-      message: 'No instruction overrides, hidden Unicode, or markdown exfiltration patterns detected.',
+      message:
+        'No instruction overrides, hidden Unicode, or markdown exfiltration patterns detected.',
     });
   }
 

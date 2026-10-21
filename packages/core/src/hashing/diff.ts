@@ -1,15 +1,10 @@
-import type {
-  DriftChange,
-  DriftDiffResult,
-  DriftSeverity,
-  McpToolDefinition,
-} from '../types.js';
+import type { DriftChange, DriftDiffResult, DriftSeverity, McpToolDefinition } from '../types.js';
 import { canonicalJsonStringify } from './canonical.js';
 import { computeDescriptionsHash, computeSchemaHash } from './dual-hash.js';
 
 export async function diffToolSets(
   previousTools: McpToolDefinition[],
-  currentTools: McpToolDefinition[]
+  currentTools: McpToolDefinition[],
 ): Promise<DriftDiffResult> {
   const [prevSchemaHash, nextSchemaHash] = await Promise.all([
     computeSchemaHash(previousTools),
@@ -94,7 +89,10 @@ export async function diffToolSets(
     }
 
     // Check annotations regression (e.g. readOnlyHint was true, now false or removed)
-    if (prevTool.annotations?.readOnlyHint === true && nextTool.annotations?.readOnlyHint !== true) {
+    if (
+      prevTool.annotations?.readOnlyHint === true &&
+      nextTool.annotations?.readOnlyHint !== true
+    ) {
       changes.push({
         toolId: name,
         changeType: 'annotation_regressed',

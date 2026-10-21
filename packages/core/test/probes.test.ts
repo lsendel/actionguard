@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  isSafeTargetUrl,
-  runInspection,
-  type McpToolDefinition,
-} from '../src/index.js';
+import { type McpToolDefinition, isSafeTargetUrl, runInspection } from '../src/index.js';
 
 describe('Probes & Live Inspector', () => {
   it('enforces SSRF protection against private IPs and loopbacks', () => {

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type ActionGuardManifest,
+  type McpToolDefinition,
   compileToA2AAgentCard,
   compileToDnsAidRecords,
   compileToGitHubAction,
@@ -7,8 +9,6 @@ import {
   generateArtifacts,
   generateStarterManifest,
   validateManifest,
-  type ActionGuardManifest,
-  type McpToolDefinition,
 } from '../src/index.js';
 
 describe('Universal Manifest Compiler', () => {

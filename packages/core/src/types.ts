@@ -136,7 +136,7 @@ export const ActionGuardManifestSchema = z.object({
           scopes: z.array(z.string()).optional(),
         })
         .optional(),
-    })
+    }),
   ),
   capabilities: z.object({
     tools: z.array(
@@ -155,7 +155,7 @@ export const ActionGuardManifestSchema = z.object({
         inputSchema: z.record(z.unknown()).default({ type: 'object' }),
         compliance: z.array(z.string()).optional(),
         examples: z.array(z.string()).optional(),
-      })
+      }),
     ),
   }),
   dnsAid: z

@@ -3,7 +3,10 @@ import type { Env } from './types.js';
 export const INDEXNOW_KEY = '9f8b2c41e8a04b57b98d2460e1d52fa1';
 export const INDEXNOW_HOST = 'actionguard.ai';
 
-export async function submitToIndexNow(env: Env, customUrls?: string[]): Promise<{
+export async function submitToIndexNow(
+  env: Env,
+  customUrls?: string[],
+): Promise<{
   success: boolean;
   status: number;
   urlCount: number;
@@ -23,7 +26,7 @@ export async function submitToIndexNow(env: Env, customUrls?: string[]): Promise
 
     if (env.actionguard_db) {
       const services = await env.actionguard_db
-        .prepare(`SELECT slug FROM services LIMIT 100`)
+        .prepare('SELECT slug FROM services LIMIT 100')
         .all<{ slug: string }>();
 
       if (services.results) {

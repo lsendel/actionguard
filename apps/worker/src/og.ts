@@ -10,7 +10,9 @@ export function renderOgCardSvg(params: {
   const tier = params.tier || 'Community Verified';
   const domain = params.domain || 'actionguard.ai';
   const latency = params.latencyMs || 120;
-  const hash = params.schemaHash ? `${params.schemaHash.substring(0, 24)}...` : 'Pinned Cryptographic Digest';
+  const hash = params.schemaHash
+    ? `${params.schemaHash.substring(0, 24)}...`
+    : 'Pinned Cryptographic Digest';
 
   let gradeColor = '#10b981';
   if (grade === 'B') gradeColor = '#3b82f6';

@@ -551,7 +551,7 @@ export function renderReportHtml(report: InspectionReport): string {
           <p>${f.message}</p>
         </div>
       </div>
-    `
+    `,
       )
       .join('')}
 
@@ -627,14 +627,16 @@ export function renderReportHtml(report: InspectionReport): string {
 </html>`;
 }
 
-export function renderIndexHtml(services: Array<{
-  slug: string;
-  display_name: string;
-  canonical_domain: string;
-  overall_grade: string;
-  verification_tier: string;
-  created_at: string;
-}>): string {
+export function renderIndexHtml(
+  services: Array<{
+    slug: string;
+    display_name: string;
+    canonical_domain: string;
+    overall_grade: string;
+    verification_tier: string;
+    created_at: string;
+  }>,
+): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>

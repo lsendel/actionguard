@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type McpToolDefinition,
   calculateScore,
   calculateToolTokenCost,
   lintPromptInjection,
   lintSchemaStrictness,
   lintTokenBloat,
-  type McpToolDefinition,
 } from '../src/index.js';
 
 describe('Security & Ergonomics Linters', () => {

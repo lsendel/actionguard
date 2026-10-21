@@ -27,7 +27,7 @@ export function canonicalJsonStringify(val: unknown): string {
 export async function sha256Hex(content: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(content);
-  
+
   // Use globalThis.crypto.subtle (available in workerd, Node 18+, Bun)
   const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));

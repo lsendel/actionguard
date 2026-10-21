@@ -9,7 +9,8 @@ export function lintSchemaStrictness(tools: McpToolDefinition[]): LintFinding[] 
       stage: 'schema',
       title: 'No Tools Advertised',
       status: 'warn',
-      message: 'Server advertised 0 tools during inspection. Verify that tools/list is enabled and accessible.',
+      message:
+        'Server advertised 0 tools during inspection. Verify that tools/list is enabled and accessible.',
     });
     return findings;
   }

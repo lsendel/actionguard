@@ -5,7 +5,7 @@ export async function handleProxyRequest(
   req: Request,
   env: Env,
   targetUrlParam?: string,
-  pinnedHashParam?: string
+  pinnedHashParam?: string,
 ): Promise<Response> {
   const targetUrl =
     targetUrlParam ||
@@ -18,8 +18,7 @@ export async function handleProxyRequest(
     new URL(req.url).searchParams.get('pin');
 
   const serviceSlug =
-    req.headers.get('x-actionguard-service') ||
-    new URL(req.url).searchParams.get('service');
+    req.headers.get('x-actionguard-service') || new URL(req.url).searchParams.get('service');
 
   // 0. API Key Authentication & Quota Enforcement
   const authHeader = req.headers.get('authorization');
@@ -45,7 +44,7 @@ export async function handleProxyRequest(
         {
           status: keyCheck.error?.includes('quota') ? 429 : 401,
           headers: { 'Content-Type': 'application/json' },
-        }
+        },
       );
     }
     clientTier = keyCheck.tier || 'free';
@@ -63,7 +62,7 @@ export async function handleProxyRequest(
             'ActionGuard Proxy: Missing upstream target URL. Provide ?target=https://... or header X-ActionGuard-Target.',
         },
       }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
@@ -94,7 +93,7 @@ export async function handleProxyRequest(
             message: 'ActionGuard SSRF Filter: Access to private and loopback networks is blocked.',
           },
         }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
+        { status: 403, headers: { 'Content-Type': 'application/json' } },
       );
     }
   } catch {
@@ -107,7 +106,7 @@ export async function handleProxyRequest(
           message: 'ActionGuard Proxy: Invalid target URL provided.',
         },
       }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
+      { status: 400, headers: { 'Content-Type': 'application/json' } },
     );
   }
 
@@ -120,10 +119,15 @@ export async function handleProxyRequest(
          FROM service_endpoints e
          JOIN services s ON e.service_id = s.id
          WHERE e.url = ? OR s.canonical_domain = ? OR s.slug = ? OR ? LIKE '%' || s.canonical_domain || '%'
-         LIMIT 1`
+         LIMIT 1`,
       )
       .bind(targetUrl, cleanDomain, serviceSlug || '', targetUrl)
-      .first<{ current_schema_sha256?: string; last_status?: string; display_name?: string; slug?: string }>();
+      .first<{
+        current_schema_sha256?: string;
+        last_status?: string;
+        display_name?: string;
+        slug?: string;
+      }>();
 
     if (endpoint?.current_schema_sha256 && endpoint.current_schema_sha256 !== pinnedHash) {
       return new Response(
@@ -148,7 +152,7 @@ export async function handleProxyRequest(
             'X-ActionGuard-Status': 'BLOCKED_DRIFT',
             'X-ActionGuard-Pin': pinnedHash,
           },
-        }
+        },
       );
     }
   }
@@ -195,7 +199,7 @@ export async function handleProxyRequest(
           message: `ActionGuard Proxy Upstream Error: ${msg}`,
         },
       }),
-      { status: 502, headers: { 'Content-Type': 'application/json' } }
+      { status: 502, headers: { 'Content-Type': 'application/json' } },
     );
   }
 }

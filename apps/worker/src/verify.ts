@@ -1,6 +1,8 @@
 export function renderVerifyHtml(domain?: string, token?: string): string {
   const defaultDomain = domain || '';
-  const defaultToken = token || `ag_verify_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 6)}`;
+  const defaultToken =
+    token ||
+    `ag_verify_${Math.random().toString(36).substring(2, 10)}${Math.random().toString(36).substring(2, 6)}`;
 
   return `<!DOCTYPE html>
 <html lang="en">

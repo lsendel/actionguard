@@ -163,13 +163,13 @@ export async function dispatchDriftAlerts(
   severity: string,
   oldHash: string,
   newHash: string,
-  reportUrl: string
+  reportUrl: string,
 ): Promise<void> {
   if (!env.actionguard_db || !env.RESEND_API_KEY) return;
 
   try {
     const subscribers = await env.actionguard_db
-      .prepare(`SELECT notify_email, alert_webhook_url FROM watchlist_items WHERE service_id = ?`)
+      .prepare('SELECT notify_email, alert_webhook_url FROM watchlist_items WHERE service_id = ?')
       .bind(serviceId)
       .all<{ notify_email?: string; alert_webhook_url?: string }>();
 
@@ -242,7 +242,7 @@ export function buildWebhookPayload(
     oldHash: string;
     newHash: string;
     reportUrl: string;
-  }
+  },
 ): { body: string; headers: Record<string, string> } {
   const isBreaking = data.severity === 'breaking';
 

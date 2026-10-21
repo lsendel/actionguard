@@ -1,8 +1,8 @@
 export function renderBadgeSvg(
   label: string,
   value: string,
-  grade: string = 'A+',
-  tier: string = 'unverified'
+  grade = 'A+',
+  tier = 'unverified',
 ): string {
   let color = '#10b981'; // Green for A/A+
   if (tier === 'Domain Verified' || tier.includes('Domain')) {

@@ -11,8 +11,8 @@ export async function hashApiKey(key: string): Promise<string> {
 export async function createNewApiKey(
   env: Env,
   email: string,
-  keyName: string = 'Default Key',
-  tier: string = 'free'
+  keyName = 'Default Key',
+  tier = 'free',
 ): Promise<{
   id: string;
   rawKey: string;
@@ -25,7 +25,7 @@ export async function createNewApiKey(
   // Find or create organization for this developer
   const orgId = `org_${Math.random().toString(36).substring(2, 10)}`;
   await env.actionguard_db
-    .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
     .bind(orgId, email, email.replace(/[^a-z0-9]/g, '_'))
     .run();
 
@@ -45,7 +45,7 @@ export async function createNewApiKey(
   await env.actionguard_db
     .prepare(
       `INSERT INTO api_keys (id, org_id, key_hash, prefix, name, tier, rate_limit_per_minute, monthly_quota, used_this_month)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
     )
     .bind(keyId, orgId, keyHash, prefix, keyName, tier, rateLimit, monthlyQuota)
     .run();
@@ -61,7 +61,7 @@ export async function createNewApiKey(
 
 export async function validateAndTrackKey(
   env: Env,
-  rawKey: string
+  rawKey: string,
 ): Promise<{
   valid: boolean;
   tier?: string;
@@ -75,7 +75,7 @@ export async function validateAndTrackKey(
     .prepare(
       `SELECT id, tier, monthly_quota, used_this_month, expires_at
        FROM api_keys
-       WHERE key_hash = ?`
+       WHERE key_hash = ?`,
     )
     .bind(keyHash)
     .first<{
@@ -104,7 +104,7 @@ export async function validateAndTrackKey(
 
   // Asynchronously increment usage counter
   await env.actionguard_db
-    .prepare(`UPDATE api_keys SET used_this_month = used_this_month + 1 WHERE id = ?`)
+    .prepare('UPDATE api_keys SET used_this_month = used_this_month + 1 WHERE id = ?')
     .bind(record.id)
     .run();
 

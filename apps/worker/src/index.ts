@@ -1,10 +1,10 @@
 import {
+  type InspectionReport,
+  type McpToolDefinition,
   computeDualHash,
   diffToolSets,
   lintPromptInjection,
   runInspection,
-  type InspectionReport,
-  type McpToolDefinition,
 } from '@actionguard/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -73,7 +73,7 @@ app.get('/index', async (c) => {
                ELSE 5
              END,
              created_at DESC
-           LIMIT 50`
+           LIMIT 50`,
         )
         .all<{
           slug: string;
@@ -109,7 +109,7 @@ app.get('/sitemap.xml', async (c) => {
   if (c.env.actionguard_db) {
     try {
       const rows = await c.env.actionguard_db
-        .prepare(`SELECT slug, created_at FROM services LIMIT 500`)
+        .prepare('SELECT slug, created_at FROM services LIMIT 500')
         .all<{ slug: string; created_at: string }>();
       services = rows.results || [];
     } catch {
@@ -129,7 +129,7 @@ app.get('/servers/:slug', async (c) => {
   }
 
   const service = await c.env.actionguard_db
-    .prepare(`SELECT * FROM services WHERE slug = ?`)
+    .prepare('SELECT * FROM services WHERE slug = ?')
     .bind(slug)
     .first<{
       slug: string;
@@ -148,13 +148,13 @@ app.get('/servers/:slug', async (c) => {
         <p>No verified profile found for "${slug}".</p>
         <p><a href="/" style="color:#60a5fa;">&larr; Inspect It Now</a></p>
       </div>`,
-      404
+      404,
     );
   }
 
   const endpoints = await c.env.actionguard_db
     .prepare(
-      `SELECT * FROM service_endpoints WHERE service_id = (SELECT id FROM services WHERE slug = ?)`
+      'SELECT * FROM service_endpoints WHERE service_id = (SELECT id FROM services WHERE slug = ?)',
     )
     .bind(slug)
     .all<{
@@ -171,7 +171,7 @@ app.get('/servers/:slug', async (c) => {
     renderServerProfileHtml({
       ...service,
       endpoints: endpoints.results || [],
-    })
+    }),
   );
 });
 
@@ -262,7 +262,12 @@ app.post('/api/keys/create', async (c) => {
     return c.json({ error: 'Valid developer email address is required' }, 400);
   }
 
-  const result = await createNewApiKey(c.env, body.email.trim(), body.name || 'Developer Key', 'free');
+  const result = await createNewApiKey(
+    c.env,
+    body.email.trim(),
+    body.name || 'Developer Key',
+    'free',
+  );
   if (!result) {
     return c.json({ error: 'Database service unavailable' }, 500);
   }
@@ -277,7 +282,10 @@ app.post('/api/verify/check', async (c) => {
     return c.json({ verified: false, message: 'Domain and token are required' }, 400);
   }
 
-  const cleanDomain = body.domain.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+  const cleanDomain = body.domain
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .toLowerCase();
   const token = body.token.trim();
   let verified = false;
 
@@ -324,7 +332,7 @@ app.post('/api/verify/check', async (c) => {
   if (verified && c.env.actionguard_db) {
     // Find or update the service in D1
     const service = await c.env.actionguard_db
-      .prepare(`SELECT id, slug FROM services WHERE canonical_domain = ? OR slug = ?`)
+      .prepare('SELECT id, slug FROM services WHERE canonical_domain = ? OR slug = ?')
       .bind(cleanDomain, cleanDomain)
       .first<{ id: string; slug: string }>();
 
@@ -360,7 +368,10 @@ app.post('/api/watchlist/subscribe', async (c) => {
     .json<{ service_slug?: string; email?: string; webhook_url?: string }>()
     .catch(() => null);
   if (!body || !body.service_slug || !body.email) {
-    return c.json({ error: 'Service slug and notification destination (email or webhook) are required' }, 400);
+    return c.json(
+      { error: 'Service slug and notification destination (email or webhook) are required' },
+      400,
+    );
   }
 
   const rawInput = body.email.trim();
@@ -371,7 +382,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
   if (!email && !webhookUrl) {
     return c.json(
       { error: 'Please enter a valid email address or webhook URL (Slack / Discord)' },
-      400
+      400,
     );
   }
 
@@ -380,7 +391,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
   }
 
   const service = await c.env.actionguard_db
-    .prepare(`SELECT id, display_name, canonical_domain, slug FROM services WHERE slug = ?`)
+    .prepare('SELECT id, display_name, canonical_domain, slug FROM services WHERE slug = ?')
     .bind(body.service_slug)
     .first<{ id: string; display_name: string; canonical_domain: string; slug: string }>();
 
@@ -392,7 +403,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
   const subscriberOrgId = `org_${Math.random().toString(36).substring(2, 10)}`;
   const orgName = email || webhookUrl?.substring(0, 30) || 'Subscriber';
   await c.env.actionguard_db
-    .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
     .bind(subscriberOrgId, orgName, orgName.replace(/[^a-z0-9]/g, '_'))
     .run();
 
@@ -401,7 +412,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
   // Find current schema hash
   const endpoint = await c.env.actionguard_db
     .prepare(
-      `SELECT current_schema_sha256, current_descriptions_sha256 FROM service_endpoints WHERE service_id = ?`
+      'SELECT current_schema_sha256, current_descriptions_sha256 FROM service_endpoints WHERE service_id = ?',
     )
     .bind(service.id)
     .first<{ current_schema_sha256: string; current_descriptions_sha256: string }>();
@@ -409,7 +420,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
   await c.env.actionguard_db
     .prepare(
       `INSERT INTO watchlist_items (id, subscriber_org_id, service_id, pinned_schema_sha256, pinned_descriptions_sha256, alert_webhook_url, notify_email)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       watchlistId,
@@ -418,7 +429,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
       endpoint?.current_schema_sha256 || null,
       endpoint?.current_descriptions_sha256 || null,
       webhookUrl,
-      email
+      email,
     )
     .run();
 
@@ -436,7 +447,7 @@ app.post('/api/watchlist/subscribe', async (c) => {
           slug: service.slug,
           pinnedHash: endpoint?.current_schema_sha256,
         }),
-      })
+      }),
     );
   }
 
@@ -517,8 +528,8 @@ app.get('/inspect', async (c) => {
         c.env.actionguard_evidence.put(
           `reports/${report.id}.json`,
           JSON.stringify(report, null, 2),
-          { httpMetadata: { contentType: 'application/json' } }
-        )
+          { httpMetadata: { contentType: 'application/json' } },
+        ),
       );
     }
 
@@ -530,13 +541,13 @@ app.get('/inspect', async (c) => {
       c.executionCtx.waitUntil(
         c.env.actionguard_db.batch([
           c.env.actionguard_db
-            .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+            .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
             .bind(orgId, report.targetDomain, report.targetDomain),
           c.env.actionguard_db
             .prepare(
               `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade)
                VALUES (?, ?, ?, ?, ?, ?)
-               ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`
+               ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`,
             )
             .bind(
               serviceId,
@@ -544,9 +555,9 @@ app.get('/inspect', async (c) => {
               report.targetDomain,
               report.targetDomain,
               report.targetDomain,
-              report.score.grade
+              report.score.grade,
             ),
-        ])
+        ]),
       );
     }
 
@@ -559,7 +570,7 @@ app.get('/inspect', async (c) => {
         <p>${msg}</p>
         <p><a href="/" style="color:#60a5fa;">&larr; Back to Inspector</a></p>
       </div>`,
-      400
+      400,
     );
   }
 });
@@ -586,7 +597,7 @@ app.post('/api/inspect', async (c) => {
       await c.env.actionguard_evidence.put(
         `reports/${report.id}.json`,
         JSON.stringify(report, null, 2),
-        { httpMetadata: { contentType: 'application/json' } }
+        { httpMetadata: { contentType: 'application/json' } },
       );
     }
 
@@ -598,13 +609,13 @@ app.post('/api/inspect', async (c) => {
 
       await c.env.actionguard_db.batch([
         c.env.actionguard_db
-          .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+          .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
           .bind(orgId, report.targetDomain, report.targetDomain),
         c.env.actionguard_db
           .prepare(
             `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade)
              VALUES (?, ?, ?, ?, ?, ?)
-             ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`
+             ON CONFLICT(slug) DO UPDATE SET overall_grade = excluded.overall_grade`,
           )
           .bind(
             serviceId,
@@ -612,7 +623,7 @@ app.post('/api/inspect', async (c) => {
             report.targetDomain,
             report.targetDomain,
             report.targetDomain,
-            report.score.grade
+            report.score.grade,
           ),
         c.env.actionguard_db
           .prepare(
@@ -621,14 +632,14 @@ app.post('/api/inspect', async (c) => {
              ON CONFLICT(id) DO UPDATE SET
                current_schema_sha256 = excluded.current_schema_sha256,
                current_descriptions_sha256 = excluded.current_descriptions_sha256,
-               last_checked_at = datetime('now')`
+               last_checked_at = datetime('now')`,
           )
           .bind(
             endpointId,
             serviceId,
             report.targetUrl,
             report.hashes.schema_sha256,
-            report.hashes.descriptions_sha256
+            report.hashes.descriptions_sha256,
           ),
       ]);
     }
@@ -662,17 +673,17 @@ app.get('/badge/:target', async (c) => {
   const slug = rawTarget.replace(/\.svg$/, '');
   let grade = 'A+';
   let tier = 'unverified';
-  let label = 'ActionGuard';
+  const label = 'ActionGuard';
   let value = 'Verified';
 
   try {
     if (c.env.actionguard_db) {
       const row = await c.env.actionguard_db
-        .prepare(`SELECT overall_grade, verification_tier FROM services WHERE slug = ?`)
+        .prepare('SELECT overall_grade, verification_tier FROM services WHERE slug = ?')
         .bind(slug)
         .first<{ overall_grade: string; verification_tier: string }>();
 
-      if (row && row.overall_grade) {
+      if (row?.overall_grade) {
         grade = row.overall_grade;
         tier = row.verification_tier || 'unverified';
         value = tier === 'Domain Verified' ? `${grade} • Domain Owner` : `${grade} • Verified`;
@@ -712,7 +723,7 @@ app.get('/og/:target', async (c) => {
            FROM services s
            LEFT JOIN service_endpoints e ON s.id = e.service_id
            WHERE s.slug = ? OR s.canonical_domain = ?
-           LIMIT 1`
+           LIMIT 1`,
         )
         .bind(slug, slug)
         .first<{
@@ -766,7 +777,7 @@ app.post('/v1/routing/resolve', async (c) => {
        FROM services s
        JOIN service_endpoints e ON s.id = e.service_id
        WHERE s.overall_grade IN ('A+', 'A')
-       LIMIT 10`
+       LIMIT 10`,
     )
     .all();
 
@@ -799,7 +810,7 @@ export default {
            FROM service_endpoints
            WHERE is_active = 1
            ORDER BY last_checked_at ASC NULLS FIRST
-           LIMIT 5`
+           LIMIT 5`,
         )
         .all<{
           id: string;
@@ -830,7 +841,7 @@ export default {
                 await env.actionguard_db
                   .prepare(
                     `INSERT INTO drift_events (id, endpoint_id, from_snapshot_id, to_snapshot_id, severity, change_type, summary_json)
-                     VALUES (?, ?, 'prev', ?, ?, ?, ?)`
+                     VALUES (?, ?, 'prev', ?, ?, ?, ?)`,
                   )
                   .bind(
                     eventId,
@@ -843,15 +854,13 @@ export default {
                       descriptionsChanged,
                       newSchemaHash: report.hashes.schema_sha256,
                       newDescHash: report.hashes.descriptions_sha256,
-                    })
+                    }),
                   )
                   .run();
 
                 // Dispatch real-time alerts to watchlist subscribers via Resend and Webhooks
                 const svc = await env.actionguard_db
-                  .prepare(
-                    `SELECT display_name, canonical_domain, slug FROM services WHERE id = ?`
-                  )
+                  .prepare('SELECT display_name, canonical_domain, slug FROM services WHERE id = ?')
                   .bind(ep.service_id)
                   .first<{ display_name: string; canonical_domain: string; slug: string }>();
 
@@ -867,8 +876,8 @@ export default {
                       severity,
                       ep.current_schema_sha256,
                       report.hashes.schema_sha256,
-                      `https://actionguard.ai/servers/${svc.slug}`
-                    )
+                      `https://actionguard.ai/servers/${svc.slug}`,
+                    ),
                   );
                 }
               }
@@ -882,26 +891,26 @@ export default {
                        last_status = ?,
                        last_latency_ms = ?,
                        last_checked_at = datetime('now')
-                   WHERE id = ?`
+                   WHERE id = ?`,
                 )
                 .bind(
                   report.hashes.schema_sha256,
                   report.hashes.descriptions_sha256,
                   report.score.grade === 'F' ? 'down' : 'up',
                   report.findings.find((f) => f.id === 'transport_latency_fast')?.details || 100,
-                  ep.id
+                  ep.id,
                 )
                 .run();
             } catch {
               // Mark degraded on network error
               await env.actionguard_db
                 .prepare(
-                  `UPDATE service_endpoints SET last_status = 'degraded', last_checked_at = datetime('now') WHERE id = ?`
+                  `UPDATE service_endpoints SET last_status = 'degraded', last_checked_at = datetime('now') WHERE id = ?`,
                 )
                 .bind(ep.id)
                 .run();
             }
-          })()
+          })(),
         );
       }
     } catch (err) {

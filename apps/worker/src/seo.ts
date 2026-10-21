@@ -20,7 +20,11 @@ export function renderSitemapXml(services: Array<{ slug: string; created_at: str
     { loc: 'https://actionguard.ai/playground', priority: '0.9', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/verify', priority: '0.8', changefreq: 'weekly' },
     { loc: 'https://actionguard.ai/docs/mcp-schema-drift', priority: '0.8', changefreq: 'weekly' },
-    { loc: 'https://actionguard.ai/docs/a2a-agent-card-generator', priority: '0.8', changefreq: 'weekly' },
+    {
+      loc: 'https://actionguard.ai/docs/a2a-agent-card-generator',
+      priority: '0.8',
+      changefreq: 'weekly',
+    },
     { loc: 'https://actionguard.ai/docs/dns-aid-setup', priority: '0.8', changefreq: 'weekly' },
   ];
 
@@ -28,22 +32,22 @@ export function renderSitemapXml(services: Array<{ slug: string; created_at: str
   xml += `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n`;
 
   for (const u of staticUrls) {
-    xml += `  <url>\n`;
+    xml += '  <url>\n';
     xml += `    <loc>${u.loc}</loc>\n`;
     xml += `    <changefreq>${u.changefreq}</changefreq>\n`;
     xml += `    <priority>${u.priority}</priority>\n`;
-    xml += `  </url>\n`;
+    xml += '  </url>\n';
   }
 
   for (const s of services) {
-    xml += `  <url>\n`;
+    xml += '  <url>\n';
     xml += `    <loc>https://actionguard.ai/servers/${encodeURIComponent(s.slug)}</loc>\n`;
-    xml += `    <changefreq>daily</changefreq>\n`;
-    xml += `    <priority>0.7</priority>\n`;
-    xml += `  </url>\n`;
+    xml += '    <changefreq>daily</changefreq>\n';
+    xml += '    <priority>0.7</priority>\n';
+    xml += '  </url>\n';
   }
 
-  xml += `</urlset>`;
+  xml += '</urlset>';
   return xml;
 }
 
@@ -86,7 +90,8 @@ export function generateServerJsonLd(service: {
     programmingLanguage: 'JSON-RPC 2.0',
     aggregateRating: {
       '@type': 'AggregateRating',
-      ratingValue: service.overall_grade === 'A+' ? '5.0' : service.overall_grade === 'A' ? '4.8' : '4.0',
+      ratingValue:
+        service.overall_grade === 'A+' ? '5.0' : service.overall_grade === 'A' ? '4.8' : '4.0',
       bestRating: '5',
       ratingCount: '124',
     },

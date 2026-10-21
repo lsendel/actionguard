@@ -1,8 +1,4 @@
-import type {
-  ActionGuardManifest,
-  GeneratedArtifacts,
-  McpToolDefinition,
-} from '../types.js';
+import type { ActionGuardManifest, GeneratedArtifacts, McpToolDefinition } from '../types.js';
 import { ActionGuardManifestSchema } from '../types.js';
 
 /**
@@ -17,7 +13,7 @@ export function validateManifest(rawJson: unknown): ActionGuardManifest {
  */
 export function compileToMcpRegistry(manifest: ActionGuardManifest): string {
   const mcpEndpoint = manifest.endpoints.find((e) => e.protocol === 'mcp');
-  
+
   const serverJson: Record<string, unknown> = {
     $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
     name: manifest.name.includes('/') ? manifest.name : `io.actionguard/${manifest.name}`,
@@ -105,7 +101,7 @@ export function compileToDnsAidRecords(manifest: ActionGuardManifest): string {
     records += `                                    alpn="h2"\n`;
     records += `                                    port=${urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80')}\n`;
     records += `                                    key65300="path=${path}"\n`;
-    records += `                                )\n`;
+    records += '                                )\n';
   }
 
   if (a2aEndpoint) {
@@ -115,7 +111,7 @@ export function compileToDnsAidRecords(manifest: ActionGuardManifest): string {
     records += `                                    alpn="h2"\n`;
     records += `                                    port=${urlObj.port || (urlObj.protocol === 'https:' ? '443' : '80')}\n`;
     records += `                                    key65300="path=${path}"\n`;
-    records += `                                )\n`;
+    records += '                                )\n';
   }
 
   records += `_${prefix}._meta._agents.${zone}.  IN  TXT   "v=aid1;ver=${manifest.version};name=${manifest.name}"\n`;
@@ -159,7 +155,7 @@ jobs:
 export function generateStarterManifest(
   domain: string,
   targetUrl: string,
-  tools: McpToolDefinition[]
+  tools: McpToolDefinition[],
 ): ActionGuardManifest {
   const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
   const name = `com.${cleanDomain.replace(/\./g, '_')}/agent`;

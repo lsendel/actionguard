@@ -25,7 +25,8 @@ export function renderServerProfileHtml(service: {
 
   const badgeMarkdown = `[![ActionGuard Verified](https://actionguard.ai/badge/${service.slug}.svg)](https://actionguard.ai/servers/${service.slug})`;
   const ep = service.endpoints && service.endpoints.length > 0 ? service.endpoints[0] : undefined;
-  const pinnedHash = ep?.current_schema_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  const pinnedHash =
+    ep?.current_schema_sha256 || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
   const targetUrl = ep?.url || `https://${service.canonical_domain}`;
   const githubActionYaml = `- name: Verify Upstream MCP Tools
   uses: actionguard/action@v1
@@ -42,7 +43,7 @@ export function renderServerProfileHtml(service: {
       },
     },
     null,
-    2
+    2,
   );
 
   const pythonSnippet = `# Route MCP tool calls through ActionGuard edge proxy

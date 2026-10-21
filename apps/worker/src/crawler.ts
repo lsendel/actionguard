@@ -1,4 +1,4 @@
-import { computeDualHash, type McpToolDefinition } from '@actionguard/core';
+import { type McpToolDefinition, computeDualHash } from '@actionguard/core';
 import type { Env } from './types.js';
 
 interface CrawledServer {
@@ -18,17 +18,22 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
     tools: [
       {
         name: 'create_issue',
-        description: 'Creates a new issue in a Linear team project with title, description, and priority.',
+        description:
+          'Creates a new issue in a Linear team project with title, description, and priority.',
         inputSchema: {
           type: 'object',
           properties: {
             teamId: { type: 'string', description: 'Linear team identifier' },
             title: { type: 'string', description: 'Issue title' },
             description: { type: 'string', description: 'Issue markdown body' },
-            priority: { type: 'number', enum: [0, 1, 2, 3, 4], description: 'Issue priority level' }
+            priority: {
+              type: 'number',
+              enum: [0, 1, 2, 3, 4],
+              description: 'Issue priority level',
+            },
           },
-          required: ['teamId', 'title']
-        }
+          required: ['teamId', 'title'],
+        },
       },
       {
         name: 'list_issues',
@@ -38,11 +43,11 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           properties: {
             teamId: { type: 'string', description: 'Optional team filter' },
             query: { type: 'string', description: 'Search keywords' },
-            limit: { type: 'number', default: 20 }
-          }
-        }
-      }
-    ]
+            limit: { type: 'number', default: 20 },
+          },
+        },
+      },
+    ],
   },
   {
     slug: 'datadog-mcp',
@@ -58,10 +63,10 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           properties: {
             query: { type: 'string', description: 'Datadog metric query string' },
             from: { type: 'number', description: 'Start epoch timestamp in seconds' },
-            to: { type: 'number', description: 'End epoch timestamp in seconds' }
+            to: { type: 'number', description: 'End epoch timestamp in seconds' },
           },
-          required: ['query', 'from', 'to']
-        }
+          required: ['query', 'from', 'to'],
+        },
       },
       {
         name: 'list_monitors',
@@ -69,11 +74,11 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
         inputSchema: {
           type: 'object',
           properties: {
-            tags: { type: 'array', items: { type: 'string' } }
-          }
-        }
-      }
-    ]
+            tags: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    ],
   },
   {
     slug: 'pagerduty-mcp',
@@ -89,10 +94,10 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           properties: {
             service_id: { type: 'string', description: 'PagerDuty service ID' },
             title: { type: 'string', description: 'Short incident summary' },
-            urgency: { type: 'string', enum: ['high', 'low'], default: 'high' }
+            urgency: { type: 'string', enum: ['high', 'low'], default: 'high' },
           },
-          required: ['service_id', 'title']
-        }
+          required: ['service_id', 'title'],
+        },
       },
       {
         name: 'list_oncall',
@@ -100,12 +105,12 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
         inputSchema: {
           type: 'object',
           properties: {
-            escalation_policy_id: { type: 'string' }
+            escalation_policy_id: { type: 'string' },
           },
-          required: ['escalation_policy_id']
-        }
-      }
-    ]
+          required: ['escalation_policy_id'],
+        },
+      },
+    ],
   },
   {
     slug: 'kubernetes-mcp',
@@ -120,9 +125,9 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           type: 'object',
           properties: {
             namespace: { type: 'string', default: 'default' },
-            selector: { type: 'string', description: 'Label selector' }
-          }
-        }
+            selector: { type: 'string', description: 'Label selector' },
+          },
+        },
       },
       {
         name: 'get_pod_logs',
@@ -132,12 +137,12 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           properties: {
             pod_name: { type: 'string' },
             namespace: { type: 'string', default: 'default' },
-            tail_lines: { type: 'number', default: 100 }
+            tail_lines: { type: 'number', default: 100 },
           },
-          required: ['pod_name']
-        }
-      }
-    ]
+          required: ['pod_name'],
+        },
+      },
+    ],
   },
   {
     slug: 'huggingface-mcp',
@@ -147,18 +152,19 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
     tools: [
       {
         name: 'search_models',
-        description: 'Searches open-source foundation models on Hugging Face Hub by task, tags, or downloads.',
+        description:
+          'Searches open-source foundation models on Hugging Face Hub by task, tags, or downloads.',
         inputSchema: {
           type: 'object',
           properties: {
             query: { type: 'string', description: 'Search term or model architecture' },
             task: { type: 'string', description: 'e.g. text-generation, text-to-image' },
-            limit: { type: 'number', default: 10 }
+            limit: { type: 'number', default: 10 },
           },
-          required: ['query']
-        }
-      }
-    ]
+          required: ['query'],
+        },
+      },
+    ],
   },
   {
     slug: 'elasticsearch-mcp',
@@ -168,18 +174,19 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
     tools: [
       {
         name: 'search_index',
-        description: 'Runs hybrid BM25 and kNN dense vector queries against an Elasticsearch index.',
+        description:
+          'Runs hybrid BM25 and kNN dense vector queries against an Elasticsearch index.',
         inputSchema: {
           type: 'object',
           properties: {
             index: { type: 'string', description: 'Target index name' },
             query: { type: 'string', description: 'Search query' },
-            size: { type: 'number', default: 10 }
+            size: { type: 'number', default: 10 },
           },
-          required: ['index', 'query']
-        }
-      }
-    ]
+          required: ['index', 'query'],
+        },
+      },
+    ],
   },
   {
     slug: 'stripe-mcp',
@@ -193,10 +200,10 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
         inputSchema: {
           type: 'object',
           properties: {
-            customer_id: { type: 'string', description: 'Stripe customer ID (cus_...)' }
+            customer_id: { type: 'string', description: 'Stripe customer ID (cus_...)' },
           },
-          required: ['customer_id']
-        }
+          required: ['customer_id'],
+        },
       },
       {
         name: 'create_invoice',
@@ -205,12 +212,12 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
           type: 'object',
           properties: {
             customer_id: { type: 'string' },
-            amount_cents: { type: 'number' }
+            amount_cents: { type: 'number' },
           },
-          required: ['customer_id', 'amount_cents']
-        }
-      }
-    ]
+          required: ['customer_id', 'amount_cents'],
+        },
+      },
+    ],
   },
   {
     slug: 'zendesk-mcp',
@@ -224,13 +231,13 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
         inputSchema: {
           type: 'object',
           properties: {
-            query: { type: 'string', description: 'Zendesk search string' }
+            query: { type: 'string', description: 'Zendesk search string' },
           },
-          required: ['query']
-        }
-      }
-    ]
-  }
+          required: ['query'],
+        },
+      },
+    ],
+  },
 ];
 
 export async function syncCrawlerCatalog(env: Env): Promise<{
@@ -242,7 +249,7 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
 
   const orgId = 'org_official_mcp';
   await env.actionguard_db
-    .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
+    .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
     .bind(orgId, 'Model Context Protocol Community', 'mcp-official')
     .run();
 
@@ -262,7 +269,7 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
            ON CONFLICT(slug) DO UPDATE SET
              display_name = excluded.display_name,
              canonical_domain = excluded.canonical_domain,
-             repository_url = excluded.repository_url`
+             repository_url = excluded.repository_url`,
         )
         .bind(serviceId, orgId, s.slug, s.name, s.domain, s.repo),
       env.actionguard_db
@@ -273,7 +280,7 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
              current_schema_sha256 = excluded.current_schema_sha256,
              current_descriptions_sha256 = excluded.current_descriptions_sha256,
              last_status = 'up',
-             last_checked_at = datetime('now')`
+             last_checked_at = datetime('now')`,
         )
         .bind(endpointId, serviceId, url, hashes.schema_sha256, hashes.descriptions_sha256),
     ]);

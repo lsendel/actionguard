@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type McpToolDefinition,
   canonicalJsonStringify,
   computeDescriptionsHash,
   computeDualHash,
   computeSchemaHash,
   diffToolSets,
-  type McpToolDefinition,
 } from '../src/index.js';
 
 describe('Dual-Hash & Canonical Serialization', () => {

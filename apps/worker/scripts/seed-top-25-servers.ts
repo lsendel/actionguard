@@ -1,4 +1,4 @@
-import { computeDualHash, type McpToolDefinition } from '@actionguard/core';
+import { type McpToolDefinition, computeDualHash } from '@actionguard/core';
 
 interface SeedServer {
   slug: string;
@@ -21,10 +21,41 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 95,
     tools: [
-      { name: 'create_issue', description: 'Creates an issue in a GitHub repository', inputSchema: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, title: { type: 'string' } }, required: ['owner', 'repo', 'title'] }, annotations: { destructiveHint: false } },
-      { name: 'search_repositories', description: 'Searches GitHub repositories by query', inputSchema: { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] }, annotations: { readOnlyHint: true } },
-      { name: 'get_file_contents', description: 'Retrieves file contents from a repository', inputSchema: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' } }, required: ['owner', 'repo', 'path'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'create_issue',
+        description: 'Creates an issue in a GitHub repository',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: { type: 'string' },
+            repo: { type: 'string' },
+            title: { type: 'string' },
+          },
+          required: ['owner', 'repo', 'title'],
+        },
+        annotations: { destructiveHint: false },
+      },
+      {
+        name: 'search_repositories',
+        description: 'Searches GitHub repositories by query',
+        inputSchema: { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'get_file_contents',
+        description: 'Retrieves file contents from a repository',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            owner: { type: 'string' },
+            repo: { type: 'string' },
+            path: { type: 'string' },
+          },
+          required: ['owner', 'repo', 'path'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'postgres-mcp',
@@ -35,9 +66,19 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 45,
     tools: [
-      { name: 'query_readonly', description: 'Executes a read-only SQL SELECT query', inputSchema: { type: 'object', properties: { sql: { type: 'string' } }, required: ['sql'] }, annotations: { readOnlyHint: true, idempotentHint: true } },
-      { name: 'list_tables', description: 'Inspects tables and schemas in database', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'query_readonly',
+        description: 'Executes a read-only SQL SELECT query',
+        inputSchema: { type: 'object', properties: { sql: { type: 'string' } }, required: ['sql'] },
+        annotations: { readOnlyHint: true, idempotentHint: true },
+      },
+      {
+        name: 'list_tables',
+        description: 'Inspects tables and schemas in database',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'sqlite-mcp',
@@ -48,8 +89,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 18,
     tools: [
-      { name: 'read_query', description: 'Execute SELECT queries against SQLite db', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'read_query',
+        description: 'Execute SELECT queries against SQLite db',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'brave-search-mcp',
@@ -60,9 +110,27 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 140,
     tools: [
-      { name: 'brave_web_search', description: 'Performs web searches via Brave Search API', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } },
-      { name: 'brave_local_search', description: 'Searches local businesses and points of interest', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'brave_web_search',
+        description: 'Performs web searches via Brave Search API',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'brave_local_search',
+        description: 'Searches local businesses and points of interest',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'fetch-mcp',
@@ -73,8 +141,13 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 110,
     tools: [
-      { name: 'fetch', description: 'Fetches HTML and converts to markdown', inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'fetch',
+        description: 'Fetches HTML and converts to markdown',
+        inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'puppeteer-mcp',
@@ -85,9 +158,21 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A',
     latencyMs: 320,
     tools: [
-      { name: 'puppeteer_navigate', description: 'Navigates browser to URL', inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } },
-      { name: 'puppeteer_screenshot', description: 'Captures screenshot of current page', inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } }
-    ]
+      {
+        name: 'puppeteer_navigate',
+        description: 'Navigates browser to URL',
+        inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+      },
+      {
+        name: 'puppeteer_screenshot',
+        description: 'Captures screenshot of current page',
+        inputSchema: {
+          type: 'object',
+          properties: { name: { type: 'string' } },
+          required: ['name'],
+        },
+      },
+    ],
   },
   {
     slug: 'slack-mcp',
@@ -98,9 +183,22 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 125,
     tools: [
-      { name: 'post_message', description: 'Posts message to Slack channel', inputSchema: { type: 'object', properties: { channel_id: { type: 'string' }, text: { type: 'string' } }, required: ['channel_id', 'text'] } },
-      { name: 'list_channels', description: 'Lists public Slack channels', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'post_message',
+        description: 'Posts message to Slack channel',
+        inputSchema: {
+          type: 'object',
+          properties: { channel_id: { type: 'string' }, text: { type: 'string' } },
+          required: ['channel_id', 'text'],
+        },
+      },
+      {
+        name: 'list_channels',
+        description: 'Lists public Slack channels',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'filesystem-mcp',
@@ -111,9 +209,27 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 12,
     tools: [
-      { name: 'read_file', description: 'Reads content from disk', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] }, annotations: { readOnlyHint: true } },
-      { name: 'write_file', description: 'Writes content to disk', inputSchema: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] }, annotations: { destructiveHint: true } }
-    ]
+      {
+        name: 'read_file',
+        description: 'Reads content from disk',
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' } },
+          required: ['path'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'write_file',
+        description: 'Writes content to disk',
+        inputSchema: {
+          type: 'object',
+          properties: { path: { type: 'string' }, content: { type: 'string' } },
+          required: ['path', 'content'],
+        },
+        annotations: { destructiveHint: true },
+      },
+    ],
   },
   {
     slug: 'google-drive-mcp',
@@ -124,8 +240,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 165,
     tools: [
-      { name: 'search_files', description: 'Searches user files in Google Drive', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'search_files',
+        description: 'Searches user files in Google Drive',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'git-repo-mcp',
@@ -136,9 +261,19 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 25,
     tools: [
-      { name: 'git_status', description: 'Shows repository status and diffs', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
-      { name: 'git_log', description: 'Returns commit history log', inputSchema: { type: 'object', properties: { limit: { type: 'number' } } }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'git_status',
+        description: 'Shows repository status and diffs',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'git_log',
+        description: 'Returns commit history log',
+        inputSchema: { type: 'object', properties: { limit: { type: 'number' } } },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'memory-graph-mcp',
@@ -149,9 +284,26 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 38,
     tools: [
-      { name: 'create_entities', description: 'Creates new entities in knowledge graph', inputSchema: { type: 'object', properties: { entities: { type: 'array' } }, required: ['entities'] } },
-      { name: 'search_nodes', description: 'Searches knowledge nodes by relation', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'create_entities',
+        description: 'Creates new entities in knowledge graph',
+        inputSchema: {
+          type: 'object',
+          properties: { entities: { type: 'array' } },
+          required: ['entities'],
+        },
+      },
+      {
+        name: 'search_nodes',
+        description: 'Searches knowledge nodes by relation',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'docker-container-mcp',
@@ -162,9 +314,23 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A',
     latencyMs: 52,
     tools: [
-      { name: 'list_containers', description: 'Lists active Docker containers', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
-      { name: 'get_logs', description: 'Inspects container stdout logs', inputSchema: { type: 'object', properties: { container_id: { type: 'string' } }, required: ['container_id'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'list_containers',
+        description: 'Lists active Docker containers',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'get_logs',
+        description: 'Inspects container stdout logs',
+        inputSchema: {
+          type: 'object',
+          properties: { container_id: { type: 'string' } },
+          required: ['container_id'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'sentry-telemetry-mcp',
@@ -175,9 +341,23 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 88,
     tools: [
-      { name: 'get_issue', description: 'Fetches issue details and stacktrace from Sentry', inputSchema: { type: 'object', properties: { issue_id: { type: 'string' } }, required: ['issue_id'] }, annotations: { readOnlyHint: true } },
-      { name: 'list_recent_errors', description: 'Returns latest production exception events', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'get_issue',
+        description: 'Fetches issue details and stacktrace from Sentry',
+        inputSchema: {
+          type: 'object',
+          properties: { issue_id: { type: 'string' } },
+          required: ['issue_id'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'list_recent_errors',
+        description: 'Returns latest production exception events',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'linear-issues-mcp',
@@ -188,9 +368,26 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 92,
     tools: [
-      { name: 'create_task', description: 'Creates issue in Linear project', inputSchema: { type: 'object', properties: { title: { type: 'string' }, team_id: { type: 'string' } }, required: ['title', 'team_id'] } },
-      { name: 'search_tasks', description: 'Searches tickets by state and assignee', inputSchema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'create_task',
+        description: 'Creates issue in Linear project',
+        inputSchema: {
+          type: 'object',
+          properties: { title: { type: 'string' }, team_id: { type: 'string' } },
+          required: ['title', 'team_id'],
+        },
+      },
+      {
+        name: 'search_tasks',
+        description: 'Searches tickets by state and assignee',
+        inputSchema: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'notion-workspace-mcp',
@@ -201,8 +398,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 142,
     tools: [
-      { name: 'query_database', description: 'Queries Notion database items', inputSchema: { type: 'object', properties: { database_id: { type: 'string' } }, required: ['database_id'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'query_database',
+        description: 'Queries Notion database items',
+        inputSchema: {
+          type: 'object',
+          properties: { database_id: { type: 'string' } },
+          required: ['database_id'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'aws-s3-storage-mcp',
@@ -213,8 +419,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 104,
     tools: [
-      { name: 'list_objects', description: 'Lists keys under S3 bucket prefix', inputSchema: { type: 'object', properties: { bucket: { type: 'string' } }, required: ['bucket'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'list_objects',
+        description: 'Lists keys under S3 bucket prefix',
+        inputSchema: {
+          type: 'object',
+          properties: { bucket: { type: 'string' } },
+          required: ['bucket'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'cloudflare-workers-mcp',
@@ -225,9 +440,22 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 42,
     tools: [
-      { name: 'list_workers', description: 'Lists deployed Cloudflare Workers', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
-      { name: 'query_d1', description: 'Runs SQL statements on D1 databases', inputSchema: { type: 'object', properties: { db_name: { type: 'string' }, sql: { type: 'string' } }, required: ['db_name', 'sql'] } }
-    ]
+      {
+        name: 'list_workers',
+        description: 'Lists deployed Cloudflare Workers',
+        inputSchema: { type: 'object' },
+        annotations: { readOnlyHint: true },
+      },
+      {
+        name: 'query_d1',
+        description: 'Runs SQL statements on D1 databases',
+        inputSchema: {
+          type: 'object',
+          properties: { db_name: { type: 'string' }, sql: { type: 'string' } },
+          required: ['db_name', 'sql'],
+        },
+      },
+    ],
   },
   {
     slug: 'redis-cache-mcp',
@@ -238,8 +466,13 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 24,
     tools: [
-      { name: 'get_key', description: 'Gets string value for Redis key', inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'get_key',
+        description: 'Gets string value for Redis key',
+        inputSchema: { type: 'object', properties: { key: { type: 'string' } }, required: ['key'] },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'jira-tickets-mcp',
@@ -250,8 +483,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A',
     latencyMs: 175,
     tools: [
-      { name: 'get_jira_issue', description: 'Retrieves Jira ticket details by key', inputSchema: { type: 'object', properties: { issue_key: { type: 'string' } }, required: ['issue_key'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'get_jira_issue',
+        description: 'Retrieves Jira ticket details by key',
+        inputSchema: {
+          type: 'object',
+          properties: { issue_key: { type: 'string' } },
+          required: ['issue_key'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'stripe-payments-mcp',
@@ -262,8 +504,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 98,
     tools: [
-      { name: 'retrieve_customer', description: 'Retrieves Stripe customer record', inputSchema: { type: 'object', properties: { customer_id: { type: 'string' } }, required: ['customer_id'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'retrieve_customer',
+        description: 'Retrieves Stripe customer record',
+        inputSchema: {
+          type: 'object',
+          properties: { customer_id: { type: 'string' } },
+          required: ['customer_id'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'kubernetes-cluster-mcp',
@@ -274,8 +525,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 76,
     tools: [
-      { name: 'get_pods', description: 'Lists pods across Kubernetes namespace', inputSchema: { type: 'object', properties: { namespace: { type: 'string' } }, required: ['namespace'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'get_pods',
+        description: 'Lists pods across Kubernetes namespace',
+        inputSchema: {
+          type: 'object',
+          properties: { namespace: { type: 'string' } },
+          required: ['namespace'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'weather-a2a-agent',
@@ -286,8 +546,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 130,
     tools: [
-      { name: 'get_weather_forecast', description: 'Retrieves 7-day temperature and precipitation forecast', inputSchema: { type: 'object', properties: { latitude: { type: 'number' }, longitude: { type: 'number' } }, required: ['latitude', 'longitude'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'get_weather_forecast',
+        description: 'Retrieves 7-day temperature and precipitation forecast',
+        inputSchema: {
+          type: 'object',
+          properties: { latitude: { type: 'number' }, longitude: { type: 'number' } },
+          required: ['latitude', 'longitude'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'travel-concierge-a2a',
@@ -298,8 +567,17 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 185,
     tools: [
-      { name: 'search_flights', description: 'Finds available multi-modal flight itineraries', inputSchema: { type: 'object', properties: { origin: { type: 'string' }, destination: { type: 'string' } }, required: ['origin', 'destination'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'search_flights',
+        description: 'Finds available multi-modal flight itineraries',
+        inputSchema: {
+          type: 'object',
+          properties: { origin: { type: 'string' }, destination: { type: 'string' } },
+          required: ['origin', 'destination'],
+        },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'wherecare-analytics',
@@ -310,8 +588,13 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 115,
     tools: [
-      { name: 'query_care_providers', description: 'Queries verified healthcare professionals', inputSchema: { type: 'object', properties: { zip: { type: 'string' } }, required: ['zip'] }, annotations: { readOnlyHint: true } }
-    ]
+      {
+        name: 'query_care_providers',
+        description: 'Queries verified healthcare professionals',
+        inputSchema: { type: 'object', properties: { zip: { type: 'string' } }, required: ['zip'] },
+        annotations: { readOnlyHint: true },
+      },
+    ],
   },
   {
     slug: 'actionguard-reference',
@@ -322,9 +605,14 @@ export const TOP_25_SERVERS: SeedServer[] = [
     grade: 'A+',
     latencyMs: 40,
     tools: [
-      { name: 'inspect_agent', description: 'Runs 5-stage edge audit against target endpoint', inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] }, annotations: { readOnlyHint: true } }
-    ]
-  }
+      {
+        name: 'inspect_agent',
+        description: 'Runs 5-stage edge audit against target endpoint',
+        inputSchema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] },
+        annotations: { readOnlyHint: true },
+      },
+    ],
+  },
 ];
 
 export async function generateSeedSql(): Promise<string> {

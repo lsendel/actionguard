@@ -19,23 +19,15 @@
     "pushNotifications": false,
     "extendedAgentCard": false
   },
-  "defaultInputModes": [
-    "application/json"
-  ],
-  "defaultOutputModes": [
-    "application/json"
-  ],
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
   "skills": [
     {
       "id": "inspect_agent",
       "name": "Inspect Agent Endpoint",
       "description": "Executes 5-stage protocol and security audit against target endpoint.",
-      "tags": [
-        "general"
-      ],
-      "examples": [
-        "Inspect https://example.com/mcp"
-      ]
+      "tags": ["general"],
+      "examples": ["Inspect https://example.com/mcp"]
     }
   ]
 }

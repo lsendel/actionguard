@@ -122,7 +122,8 @@ export async function probeTransport(targetUrl: string): Promise<TransportProbeR
           stage: 'transport',
           title: 'Missing WWW-Authenticate Header',
           status: 'warn',
-          message: 'Endpoint returned 401 Unauthorized but omitted the standard WWW-Authenticate challenge header.',
+          message:
+            'Endpoint returned 401 Unauthorized but omitted the standard WWW-Authenticate challenge header.',
         });
       }
     } else if (res.ok) {

@@ -19,7 +19,7 @@ export interface InspectOptions {
  */
 export async function runInspection(
   targetUrl: string,
-  options: InspectOptions = {}
+  options: InspectOptions = {},
 ): Promise<InspectionReport> {
   const urlCheck = isSafeTargetUrl(targetUrl);
   if (!urlCheck.isSafe && !options.skipSsrf) {
@@ -41,8 +41,7 @@ export async function runInspection(
   findings.push(...transportResult.findings);
 
   // Collect discovered tools or use mocks
-  const discoveredTools: McpToolDefinition[] =
-    options.mockTools || transportResult.tools;
+  const discoveredTools: McpToolDefinition[] = options.mockTools || transportResult.tools;
 
   // Stage 3: Schema Quality & Ergonomics
   findings.push(...lintSchemaStrictness(discoveredTools));

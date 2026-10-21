@@ -13,7 +13,8 @@ export const GUIDES: Record<string, GuideArticle> = {
     slug: 'mcp-schema-drift',
     title: 'How to Prevent Silent Schema Drift & Tool Poisoning in MCP Servers',
     headline: 'Preventing Schema Drift & Tool Poisoning in Model Context Protocol (MCP)',
-    description: 'A deep-dive guide for AI platform teams on detecting unannounced tool parameter changes, prompt injection mutations, and broken MCP integrations.',
+    description:
+      'A deep-dive guide for AI platform teams on detecting unannounced tool parameter changes, prompt injection mutations, and broken MCP integrations.',
     readingTime: '5 min read',
     updatedAt: 'October 20, 2026',
     contentHtml: `
@@ -53,7 +54,8 @@ jobs:
     slug: 'a2a-agent-card-generator',
     title: 'A2A v1.0 Agent Card (agent-card.json) Specification & Guide',
     headline: 'How to Build & Host a Compliant A2A Agent Card (agent-card.json)',
-    description: 'Learn the official Google Agent2Agent (A2A) v1.0 specification, skill declarations, JSON-RPC interface bindings, and CORS requirements.',
+    description:
+      'Learn the official Google Agent2Agent (A2A) v1.0 specification, skill declarations, JSON-RPC interface bindings, and CORS requirements.',
     readingTime: '4 min read',
     updatedAt: 'October 20, 2026',
     contentHtml: `
@@ -108,7 +110,8 @@ jobs:
     slug: 'dns-aid-setup',
     title: 'DNS-AID (RFC 8552 / RFC 9460) AI Agent Discovery via DNS',
     headline: 'Decentralized AI Agent Discovery via DNS-AID and RFC 8552',
-    description: 'Discover how the Linux Foundation DNS-AID project uses standard DNS SVCB, TXT, and TLSA records to identify AI agents without centralized registries.',
+    description:
+      'Discover how the Linux Foundation DNS-AID project uses standard DNS SVCB, TXT, and TLSA records to identify AI agents without centralized registries.',
     readingTime: '6 min read',
     updatedAt: 'October 20, 2026',
     contentHtml: `
