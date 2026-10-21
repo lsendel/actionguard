@@ -35,6 +35,14 @@ export {
 // Scoring
 export { calculateScore } from './scoring/grade.js';
 
+// Telemetry & Uptime
+export {
+  calculateMedianLatency,
+  calculateUptimeStats,
+  type ProbeRecord,
+  type UptimeStats,
+} from './telemetry/uptime.js';
+
 // Probes & Live Inspector
 export { isSafeTargetUrl } from './probes/ssrf.js';
 export { probeIdentity } from './probes/identity.js';

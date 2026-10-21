@@ -108,15 +108,16 @@ jobs:
   },
   'dns-aid-setup': {
     slug: 'dns-aid-setup',
-    title: 'DNS-AID (RFC 8552 / RFC 9460) AI Agent Discovery via DNS',
+    title: 'DNS-AID: AI Agent Discovery via DNS (Experimental)',
     headline: 'Decentralized AI Agent Discovery via DNS-AID and RFC 8552',
     description:
-      'Discover how the Linux Foundation DNS-AID project uses standard DNS SVCB, TXT, and TLSA records to identify AI agents without centralized registries.',
+      'Discover how DNS-AID utilizes standard DNS SVCB, TXT, and TLSA records (RFC 8552 / RFC 9460) to identify AI agents without centralized registries.',
     readingTime: '6 min read',
     updatedAt: 'October 20, 2026',
     contentHtml: `
       <h2>Why DNS-AID? Beyond Centralized Catalogs</h2>
-      <p>Most AI discovery formats rely on centralized registries or GitHub scraping. <strong>DNS-AID (DNS-based Agent Identification and Discovery)</strong>, governed under the Linux Foundation and IETF drafts (<code>draft-mozleywilliams-dnsop-dnsaid</code>), solves this by utilizing the internet's most robust directory: the <strong>Domain Name System (DNS)</strong>.</p>
+      <p>Most AI discovery formats rely on centralized registries or GitHub scraping. <strong>DNS-AID (DNS-based Agent Identification and Discovery)</strong> solves this by utilizing the internet's most robust directory: the <strong>Domain Name System (DNS)</strong>.</p>
+      <p>DNS-AID is an individual Internet-Draft (<code>draft-mozleywilliams-dnsop-dnsaid</code>). It is not an IETF standard and has no working-group status. ActionGuard supports it as an experimental format.</p>
 
       <h2>How DNS-AID Works Without New Record Types</h2>
       <p>Rather than inventing proprietary DNS records, DNS-AID layers on top of standard, widely deployed RFCs:</p>
