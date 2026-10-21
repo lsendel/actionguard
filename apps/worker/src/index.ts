@@ -9,6 +9,9 @@ import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { renderBadgeSvg } from './badges.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
+import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
+import { createNewApiKey } from './keys.js';
+import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
 import { renderServerProfileHtml } from './server-profile.js';
@@ -180,6 +183,40 @@ app.get('/docs/:slug', (c) => {
 // Self-Serve Domain Verification UI
 app.get('/verify', (c) => {
   return c.html(renderVerifyHtml(c.req.query('domain')));
+});
+
+// Transparent Pricing & Plans UI
+app.get('/pricing', (c) => {
+  return c.html(renderPricingHtml());
+});
+
+// IndexNow Verification Key File (RFC IndexNow Protocol)
+app.get(`/${INDEXNOW_KEY}.txt`, (c) => {
+  return c.text(INDEXNOW_KEY, 200, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'public, max-age=86400',
+  });
+});
+
+// API: Trigger IndexNow Instant Search Engine Indexing
+app.post('/api/seo/indexnow', async (c) => {
+  const result = await submitToIndexNow(c.env);
+  return c.json(result, result.success ? 200 : 500);
+});
+
+// API: Generate Developer API Key (Free Community or Pro)
+app.post('/api/keys/create', async (c) => {
+  const body = await c.req.json<{ email?: string; name?: string }>().catch(() => null);
+  if (!body || !body.email || !body.email.includes('@')) {
+    return c.json({ error: 'Valid developer email address is required' }, 400);
+  }
+
+  const result = await createNewApiKey(c.env, body.email.trim(), body.name || 'Developer Key', 'free');
+  if (!result) {
+    return c.json({ error: 'Database service unavailable' }, 500);
+  }
+
+  return c.json(result);
 });
 
 // Self-Serve Domain Verification API

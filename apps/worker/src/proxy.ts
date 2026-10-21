@@ -1,3 +1,4 @@
+import { validateAndTrackKey } from './keys.js';
 import type { Env } from './types.js';
 
 export async function handleProxyRequest(
@@ -19,6 +20,37 @@ export async function handleProxyRequest(
   const serviceSlug =
     req.headers.get('x-actionguard-service') ||
     new URL(req.url).searchParams.get('service');
+
+  // 0. API Key Authentication & Quota Enforcement
+  const authHeader = req.headers.get('authorization');
+  const apiKey =
+    req.headers.get('x-actionguard-key') ||
+    (authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : undefined);
+
+  let clientTier = 'community';
+  let quotaRemaining: number | undefined;
+
+  if (apiKey) {
+    const keyCheck = await validateAndTrackKey(env, apiKey);
+    if (!keyCheck.valid) {
+      return new Response(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: null,
+          error: {
+            code: -32000,
+            message: `ActionGuard Auth: ${keyCheck.error}`,
+          },
+        }),
+        {
+          status: keyCheck.error?.includes('quota') ? 429 : 401,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+    }
+    clientTier = keyCheck.tier || 'free';
+    quotaRemaining = keyCheck.quotaRemaining;
+  }
 
   if (!targetUrl) {
     return new Response(
@@ -142,6 +174,10 @@ export async function handleProxyRequest(
     responseHeaders.set('X-ActionGuard-Proxy', 'active');
     responseHeaders.set('X-ActionGuard-Latency-Ms', latencyMs.toString());
     responseHeaders.set('X-ActionGuard-Integrity', 'verified');
+    responseHeaders.set('X-ActionGuard-Tier', clientTier);
+    if (quotaRemaining !== undefined) {
+      responseHeaders.set('X-ActionGuard-Quota-Remaining', quotaRemaining.toString());
+    }
 
     return new Response(upstreamRes.body, {
       status: upstreamRes.status,

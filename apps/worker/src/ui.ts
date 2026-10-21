@@ -221,6 +221,7 @@ export function renderHomepageHtml(): string {
     <div class="nav-links">
       <a href="/index" class="nav-link">Reliability Index</a>
       <a href="/verify" class="nav-link">Verify Domain</a>
+      <a href="/pricing" class="nav-link">Pricing</a>
       <a href="/docs/mcp-schema-drift" class="nav-link">Protocol Docs</a>
       <span class="shield-badge">SSL Labs for Agents</span>
     </div>
@@ -267,6 +268,7 @@ export function renderHomepageHtml(): string {
     <div style="display:flex;justify-content:center;gap:20px;margin-bottom:12px;flex-wrap:wrap;">
       <a href="/index" style="color:var(--text-muted);text-decoration:none;">Reliability Index</a>
       <a href="/verify" style="color:var(--text-muted);text-decoration:none;">Claim &amp; Verify Domain</a>
+      <a href="/pricing" style="color:var(--text-muted);text-decoration:none;">Pricing &amp; API Plans</a>
       <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;">Schema Drift Guide</a>
       <a href="/docs/a2a-agent-card-generator" style="color:var(--text-muted);text-decoration:none;">A2A Protocol Guide</a>
       <a href="/docs/dns-aid-setup" style="color:var(--text-muted);text-decoration:none;">DNS-AID Setup</a>
