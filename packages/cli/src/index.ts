@@ -223,6 +223,9 @@ async function handleMcpStdio(): Promise<void> {
                   },
                   required: ['url'],
                 },
+                annotations: {
+                  readOnlyHint: true,
+                },
               },
               {
                 name: 'actionguard_check_drift',
@@ -241,6 +244,9 @@ async function handleMcpStdio(): Promise<void> {
                     },
                   },
                   required: ['url', 'pinnedSchemaHash'],
+                },
+                annotations: {
+                  readOnlyHint: true,
                 },
               },
             ],

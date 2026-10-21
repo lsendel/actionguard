@@ -241,6 +241,60 @@ app.post('/api/catalog/sync', async (c) => {
   return c.json(result);
 });
 
+// Official MCP Registry Metadata (/server.json)
+app.get('/server.json', (c) => {
+  return c.json({
+    $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
+    name: 'com.actionguard/inspector',
+    title: 'ActionGuard Protocol Inspector Agent',
+    description: 'Evidence-first protocol inspection and drift detection for AI agents.',
+    version: '1.0.0',
+    remotes: [
+      {
+        type: 'streamable-http',
+        url: 'https://actionguard.ai/mcp',
+      },
+    ],
+  });
+});
+
+// A2A Protocol Agent Card (/.well-known/agent-card.json)
+app.get('/.well-known/agent-card.json', (c) => {
+  return c.json({
+    name: 'ActionGuard Protocol Inspector Agent',
+    description: 'Evidence-first protocol inspection and drift detection for AI agents.',
+    version: '1.0.0',
+    documentationUrl: 'https://actionguard.ai/docs',
+    provider: {
+      organization: 'ActionGuard Protocol Inspector Agent',
+      url: 'https://actionguard.ai',
+    },
+    supportedInterfaces: [
+      {
+        url: 'https://actionguard.ai/a2a/v1',
+        protocolBinding: 'JSONRPC',
+        protocolVersion: '1.0',
+      },
+    ],
+    capabilities: {
+      streaming: true,
+      pushNotifications: false,
+      extendedAgentCard: false,
+    },
+    defaultInputModes: ['application/json'],
+    defaultOutputModes: ['application/json'],
+    skills: [
+      {
+        id: 'inspect_agent',
+        name: 'Inspect Agent Endpoint',
+        description: 'Executes 5-stage protocol and security audit against target endpoint.',
+        tags: ['general'],
+        examples: ['Inspect https://example.com/mcp'],
+      },
+    ],
+  });
+});
+
 // IndexNow Verification Key File (RFC IndexNow Protocol)
 app.get(`/${INDEXNOW_KEY}.txt`, (c) => {
   return c.text(INDEXNOW_KEY, 200, {
@@ -784,6 +838,194 @@ app.post('/v1/routing/resolve', async (c) => {
   return c.json({
     timestamp: new Date().toISOString(),
     matches: services.results || [],
+  });
+});
+
+// Streamable HTTP / JSON-RPC 2.0 MCP Protocol Endpoint
+app.all('/mcp', async (c) => {
+  if (c.req.method === 'GET') {
+    return c.json({
+      protocolVersion: '2024-11-05',
+      name: 'actionguard-inspector',
+      status: 'ready',
+      endpoints: {
+        http: 'https://actionguard.ai/mcp',
+      },
+    });
+  }
+
+  const req = await c.req
+    .json<{
+      jsonrpc?: string;
+      id?: number | string | null;
+      method?: string;
+      params?: {
+        name?: string;
+        arguments?: Record<string, unknown>;
+      };
+    }>()
+    .catch(() => null);
+
+  if (!req || req.jsonrpc !== '2.0') {
+    return c.json(
+      { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } },
+      400,
+    );
+  }
+
+  const { id, method, params } = req;
+
+  if (method === 'initialize') {
+    return c.json({
+      jsonrpc: '2.0',
+      id,
+      result: {
+        protocolVersion: '2024-11-05',
+        capabilities: { tools: {} },
+        serverInfo: {
+          name: 'actionguard-inspector',
+          version: '0.1.0',
+        },
+      },
+    });
+  }
+
+  if (method === 'notifications/initialized') {
+    return new Response(null, { status: 204 });
+  }
+
+  if (method === 'ping') {
+    return c.json({ jsonrpc: '2.0', id, result: {} });
+  }
+
+  if (method === 'tools/list') {
+    return c.json({
+      jsonrpc: '2.0',
+      id,
+      result: {
+        tools: [
+          {
+            name: 'actionguard_inspect',
+            description:
+              'Run a 5-stage continuous reliability, security, and schema audit of an MCP server or AI agent endpoint.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                url: {
+                  type: 'string',
+                  description: 'The target MCP server or agent endpoint URL to audit',
+                },
+              },
+              required: ['url'],
+            },
+            annotations: {
+              readOnlyHint: true,
+            },
+          },
+          {
+            name: 'actionguard_check_drift',
+            description:
+              "Verify whether an MCP server's tools schema or descriptions have drifted from a pinned Dual-Hash.",
+            inputSchema: {
+              type: 'object',
+              properties: {
+                url: {
+                  type: 'string',
+                  description: 'The target MCP server endpoint URL',
+                },
+                pinnedSchemaHash: {
+                  type: 'string',
+                  description: 'Pinned 64-char hex SHA-256 schema hash',
+                },
+              },
+              required: ['url', 'pinnedSchemaHash'],
+            },
+            annotations: {
+              readOnlyHint: true,
+            },
+          },
+        ],
+      },
+    });
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params?.name;
+    const toolArgs = params?.arguments || {};
+
+    if (toolName === 'actionguard_inspect') {
+      try {
+        const report = await runInspection(toolArgs.url);
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(report, null, 2),
+              },
+            ],
+          },
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          error: { code: -32603, message: msg || 'Inspection failed' },
+        });
+      }
+    }
+
+    if (toolName === 'actionguard_check_drift') {
+      try {
+        const report = await runInspection(toolArgs.url);
+        const matches = report.hashes.schema_sha256 === toolArgs.pinnedSchemaHash;
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(
+                  {
+                    matches,
+                    targetUrl: toolArgs.url,
+                    expectedHash: toolArgs.pinnedSchemaHash,
+                    observedHash: report.hashes.schema_sha256,
+                    drifted: !matches,
+                    grade: report.score.grade,
+                  },
+                  null,
+                  2,
+                ),
+              },
+            ],
+          },
+        });
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return c.json({
+          jsonrpc: '2.0',
+          id,
+          error: { code: -32603, message: msg || 'Check failed' },
+        });
+      }
+    }
+
+    return c.json({
+      jsonrpc: '2.0',
+      id,
+      error: { code: -32601, message: `Tool not found: ${toolName}` },
+    });
+  }
+
+  return c.json({
+    jsonrpc: '2.0',
+    id,
+    error: { code: -32601, message: `Method not found: ${method}` },
   });
 });
 
