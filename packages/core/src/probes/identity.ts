@@ -17,7 +17,11 @@ export interface IdentityProbeResult {
 /**
  * Stage 1 Probe: Resolves decentralized identity, DNS-AID records, and A2A agent cards.
  */
-export async function probeIdentity(domain: string): Promise<IdentityProbeResult> {
+export async function probeIdentity(
+  domain: string,
+  fetchFn?: typeof fetch,
+): Promise<IdentityProbeResult> {
+  const doFetch = fetchFn || fetch;
   const cleanDomain = domain.replace(/^https?:\/\//, '').split('/')[0];
   const findings: LintFinding[] = [];
 
@@ -28,7 +32,7 @@ export async function probeIdentity(domain: string): Promise<IdentityProbeResult
   // 1. Probe DNS-AID via Cloudflare DoH (DNS over HTTPS)
   try {
     const dohUrl = `https://cloudflare-dns.com/dns-query?name=_agents.${cleanDomain}&type=TXT`;
-    const res = await fetch(dohUrl, {
+    const res = await doFetch(dohUrl, {
       headers: { Accept: 'application/dns-json' },
       signal: AbortSignal.timeout(2000),
     });
@@ -74,7 +78,7 @@ export async function probeIdentity(domain: string): Promise<IdentityProbeResult
   const a2aUrl = `https://${cleanDomain}/.well-known/agent-card.json`;
 
   try {
-    const res = await fetch(a2aUrl, {
+    const res = await doFetch(a2aUrl, {
       headers: { Accept: 'application/json' },
       signal: AbortSignal.timeout(2500),
     });

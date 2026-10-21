@@ -16,7 +16,11 @@ export interface TransportProbeResult {
 /**
  * Stage 2 Probe: Tests transport negotiation, JSON-RPC 2.0 initialize, latency, and auth handling.
  */
-export async function probeTransport(targetUrl: string): Promise<TransportProbeResult> {
+export async function probeTransport(
+  targetUrl: string,
+  fetchFn?: typeof fetch,
+): Promise<TransportProbeResult> {
+  const doFetch = fetchFn || fetch;
   const startTime = Date.now();
   const findings: LintFinding[] = [];
   let isAlive = false;
@@ -47,7 +51,7 @@ export async function probeTransport(targetUrl: string): Promise<TransportProbeR
   };
 
   try {
-    const res = await fetch(targetUrl, {
+    const res = await doFetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -102,7 +106,7 @@ export async function probeTransport(targetUrl: string): Promise<TransportProbeR
         try {
           const urlObj = new URL(targetUrl);
           const metaUrl = `https://${urlObj.hostname}/.well-known/oauth-protected-resource`;
-          const metaRes = await fetch(metaUrl, { signal: AbortSignal.timeout(1500) });
+          const metaRes = await doFetch(metaUrl, { signal: AbortSignal.timeout(1500) });
           if (metaRes.ok) {
             oauthCompliant = true;
             findings.push({
@@ -165,7 +169,7 @@ export async function probeTransport(targetUrl: string): Promise<TransportProbeR
           };
           if (sessionId) toolsHeaders['Mcp-Session-Id'] = sessionId;
 
-          const toolsRes = await fetch(targetUrl, {
+          const toolsRes = await doFetch(targetUrl, {
             method: 'POST',
             headers: toolsHeaders,
             body: JSON.stringify(toolsPayload),

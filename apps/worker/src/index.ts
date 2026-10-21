@@ -733,13 +733,35 @@ async function persistInspectionReport(
   return { serviceId, slug };
 }
 
+function createInternalFetcher(env: Env): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const urlStr =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+    try {
+      const parsed = new URL(urlStr);
+      if (
+        parsed.hostname === 'actionguard.ai' ||
+        parsed.hostname === 'www.actionguard.ai' ||
+        parsed.hostname === 'action-guard.com' ||
+        parsed.hostname === 'www.action-guard.com'
+      ) {
+        return app.request(parsed.pathname + parsed.search, init, env);
+      }
+    } catch {
+      // Fall through to global fetch
+    }
+    return fetch(input, init);
+  };
+}
+
 // SSR Web UI: Run inspection from query param
 app.get('/inspect', async (c) => {
   const url = c.req.query('url');
   if (!url) return c.redirect('/');
 
   try {
-    const report = await runInspection(url);
+    const report = await runInspection(url, { fetchFn: createInternalFetcher(c.env) });
 
     // Save report to R2 asynchronously if bucket is bound
     if (c.env.actionguard_evidence) {
@@ -779,7 +801,7 @@ app.post('/api/inspect', async (c) => {
   }
 
   try {
-    const report = await runInspection(body.url);
+    const report = await runInspection(body.url, { fetchFn: createInternalFetcher(c.env) });
 
     // Persist full report to R2
     if (c.env.actionguard_evidence) {
@@ -1096,7 +1118,9 @@ app.all('/mcp', async (c) => {
 
     if (toolName === 'actionguard_inspect') {
       try {
-        const report = await runInspection(toolArgs.url);
+        const report = await runInspection(toolArgs.url, {
+          fetchFn: createInternalFetcher(c.env),
+        });
         return c.json({
           jsonrpc: '2.0',
           id,
@@ -1121,7 +1145,9 @@ app.all('/mcp', async (c) => {
 
     if (toolName === 'actionguard_check_drift') {
       try {
-        const report = await runInspection(toolArgs.url);
+        const report = await runInspection(toolArgs.url, {
+          fetchFn: createInternalFetcher(c.env),
+        });
         const matches = report.hashes.schema_sha256 === toolArgs.pinnedSchemaHash;
         return c.json({
           jsonrpc: '2.0',
@@ -1206,11 +1232,13 @@ export default {
 
       if (!endpoints.results || endpoints.results.length === 0) return;
 
+      const internalFetcher = createInternalFetcher(env);
+
       for (const ep of endpoints.results) {
         ctx.waitUntil(
           (async () => {
             try {
-              const report = await runInspection(ep.url);
+              const report = await runInspection(ep.url, { fetchFn: internalFetcher });
 
               // Check for drift
               const schemaChanged = report.hashes.schema_sha256 !== ep.current_schema_sha256;

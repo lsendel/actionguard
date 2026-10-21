@@ -12,6 +12,7 @@ import { probeTransport } from './transport.js';
 export interface InspectOptions {
   mockTools?: McpToolDefinition[];
   skipSsrf?: boolean;
+  fetchFn?: typeof fetch;
 }
 
 /**
@@ -33,11 +34,11 @@ export async function runInspection(
   const findings: LintFinding[] = [];
 
   // Stage 1: Identity & Discovery Resolution
-  const identityResult = await probeIdentity(domain);
+  const identityResult = await probeIdentity(domain, options.fetchFn);
   findings.push(...identityResult.findings);
 
   // Stage 2: Transport & Handshake Probe
-  const transportResult = await probeTransport(targetUrl);
+  const transportResult = await probeTransport(targetUrl, options.fetchFn);
   findings.push(...transportResult.findings);
 
   // Collect discovered tools or use mocks
