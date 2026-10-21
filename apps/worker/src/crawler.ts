@@ -467,7 +467,10 @@ export const CRAWLED_SERVERS: CrawledServer[] = [
             thought: { type: 'string', description: 'The current thinking step' },
             thoughtNumber: { type: 'number', description: 'Current thought index' },
             totalThoughts: { type: 'number', description: 'Estimated thoughts needed' },
-            nextThoughtNeeded: { type: 'boolean', description: 'Whether more thoughts are required' },
+            nextThoughtNeeded: {
+              type: 'boolean',
+              description: 'Whether more thoughts are required',
+            },
           },
           required: ['thought', 'thoughtNumber', 'totalThoughts', 'nextThoughtNeeded'],
         },

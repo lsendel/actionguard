@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import {
+  type InspectionReport,
+  type LintFinding,
   compileToA2AAgentCard,
   compileToDnsAidRecords,
   compileToMcpRegistry,
@@ -67,7 +69,10 @@ async function handleInit(customName?: string): Promise<void> {
 
   // Infer from directory name if still missing
   if (!projectName) {
-    projectName = path.basename(cwd).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    projectName = path
+      .basename(cwd)
+      .toLowerCase()
+      .replace(/[^a-z0-9_-]/g, '-');
   }
 
   const title = projectName
@@ -131,7 +136,9 @@ jobs:
           # pinned_hash: 'expected-schema-sha256'
 `;
     fs.writeFileSync(workflowPath, workflowYaml);
-    console.log('  \x1b[32m✔\x1b[0m Generated \x1b[1m.github/workflows/verify-mcp.yml\x1b[0m (CI Gate)');
+    console.log(
+      '  \x1b[32m✔\x1b[0m Generated \x1b[1m.github/workflows/verify-mcp.yml\x1b[0m (CI Gate)',
+    );
   } else {
     console.log('  \x1b[33mℹ\x1b[0m Found existing \x1b[1m.github/workflows/verify-mcp.yml\x1b[0m');
   }
@@ -139,7 +146,9 @@ jobs:
   console.log('\n\x1b[32m🎉 ActionGuard onboarding complete!\x1b[0m');
   console.log('Next steps:');
   console.log('  1. Inspect your live server:  \x1b[36mactionguard inspect <url>\x1b[0m');
-  console.log('  2. Lock your schema in CI:    \x1b[36mactionguard check <url> --pin <hash>\x1b[0m');
+  console.log(
+    '  2. Lock your schema in CI:    \x1b[36mactionguard check <url> --pin <hash>\x1b[0m',
+  );
   console.log('  3. Claim your domain badge:   \x1b[36mhttps://actionguard.ai/verify\x1b[0m\n');
 }
 
@@ -239,8 +248,8 @@ async function handleCompile(manifestPath = 'actionguard.json'): Promise<void> {
   }
 }
 
-function generateSarifReport(report: any, pinnedHash?: string) {
-  const rules = report.findings.map((f: any) => ({
+function generateSarifReport(report: InspectionReport, pinnedHash?: string) {
+  const rules = report.findings.map((f: LintFinding) => ({
     id: f.id,
     name: f.title,
     shortDescription: { text: f.message },
@@ -250,8 +259,8 @@ function generateSarifReport(report: any, pinnedHash?: string) {
   }));
 
   const results = report.findings
-    .filter((f: any) => f.status === 'fail' || f.status === 'warn')
-    .map((f: any) => ({
+    .filter((f: LintFinding) => f.status === 'fail' || f.status === 'warn')
+    .map((f: LintFinding) => ({
       ruleId: f.id,
       level: f.status === 'fail' ? 'error' : 'warning',
       message: { text: f.message },

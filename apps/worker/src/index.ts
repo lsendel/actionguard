@@ -1337,9 +1337,7 @@ export default {
               }
 
               // Update endpoint record and record probe
-              const isUnreachable = report.findings.some(
-                (f) => f.id === 'transport_unreachable',
-              );
+              const isUnreachable = report.findings.some((f) => f.id === 'transport_unreachable');
               const status = isUnreachable ? 'down' : 'up';
               const gradeToStore = isUnreachable ? 'Unreachable' : report.score.grade;
               const latencyFinding = report.findings.find(

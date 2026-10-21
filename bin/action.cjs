@@ -5111,14 +5111,18 @@ jobs:
           # pinned_hash: 'expected-schema-sha256'
 `;
     import_node_fs.default.writeFileSync(workflowPath, workflowYaml);
-    console.log("  \x1B[32m\u2714\x1B[0m Generated \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m (CI Gate)");
+    console.log(
+      "  \x1B[32m\u2714\x1B[0m Generated \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m (CI Gate)"
+    );
   } else {
     console.log("  \x1B[33m\u2139\x1B[0m Found existing \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m");
   }
   console.log("\n\x1B[32m\u{1F389} ActionGuard onboarding complete!\x1B[0m");
   console.log("Next steps:");
   console.log("  1. Inspect your live server:  \x1B[36mactionguard inspect <url>\x1B[0m");
-  console.log("  2. Lock your schema in CI:    \x1B[36mactionguard check <url> --pin <hash>\x1B[0m");
+  console.log(
+    "  2. Lock your schema in CI:    \x1B[36mactionguard check <url> --pin <hash>\x1B[0m"
+  );
   console.log("  3. Claim your domain badge:   \x1B[36mhttps://actionguard.ai/verify\x1B[0m\n");
 }
 async function handleInspect(targetUrl) {
