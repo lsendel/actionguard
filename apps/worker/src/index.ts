@@ -1,5 +1,7 @@
 import {
+  computeDualHash,
   diffToolSets,
+  lintPromptInjection,
   runInspection,
   type InspectionReport,
   type McpToolDefinition,
@@ -8,9 +10,11 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { renderBadgeSvg } from './badges.js';
+import { syncCrawlerCatalog } from './crawler.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
 import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
 import { createNewApiKey } from './keys.js';
+import { renderPlaygroundHtml } from './playground-ui.js';
 import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
@@ -190,6 +194,52 @@ app.get('/pricing', (c) => {
   return c.html(renderPricingHtml());
 });
 
+// Interactive Schema Drift & Prompt Poisoning Simulator
+app.get('/playground', (c) => {
+  return c.html(renderPlaygroundHtml());
+});
+
+// API: Analyze MCP Tool Definition in Playground
+app.post('/api/playground/analyze', async (c) => {
+  const body = await c.req
+    .json<{
+      tool?: McpToolDefinition;
+      baseline_schema_hash?: string;
+      baseline_desc_hash?: string;
+    }>()
+    .catch(() => null);
+
+  if (!body || !body.tool) {
+    return c.json({ error: 'Valid tool definition required' }, 400);
+  }
+
+  const hashes = await computeDualHash([body.tool]);
+  const scan = lintPromptInjection(body.tool.description || '');
+
+  let classification = 'CLEAN_BASELINE';
+  if (body.baseline_schema_hash && hashes.schema_sha256 !== body.baseline_schema_hash) {
+    classification = 'BREAKING_SCHEMA_DRIFT';
+  } else if (body.baseline_desc_hash && hashes.descriptions_sha256 !== body.baseline_desc_hash) {
+    classification = 'SILENT_PROMPT_MUTATION';
+  } else if (scan.hasInjection) {
+    classification = 'SILENT_PROMPT_MUTATION';
+  }
+
+  return c.json({
+    schema_sha256: hashes.schema_sha256,
+    descriptions_sha256: hashes.descriptions_sha256,
+    classification,
+    is_poisoned: scan.hasInjection,
+    findings: scan.findings,
+  });
+});
+
+// API: Automated Ingestion Crawler Sync for Official MCP Servers
+app.post('/api/catalog/sync', async (c) => {
+  const result = await syncCrawlerCatalog(c.env);
+  return c.json(result);
+});
+
 // IndexNow Verification Key File (RFC IndexNow Protocol)
 app.get(`/${INDEXNOW_KEY}.txt`, (c) => {
   return c.text(INDEXNOW_KEY, 200, {
@@ -309,12 +359,19 @@ app.post('/api/watchlist/subscribe', async (c) => {
     .json<{ service_slug?: string; email?: string; webhook_url?: string }>()
     .catch(() => null);
   if (!body || !body.service_slug || !body.email) {
-    return c.json({ error: 'Service slug and valid email address are required' }, 400);
+    return c.json({ error: 'Service slug and notification destination (email or webhook) are required' }, 400);
   }
 
-  const email = body.email.trim().toLowerCase();
-  if (!email.includes('@') || email.length < 5) {
-    return c.json({ error: 'Please enter a valid email address' }, 400);
+  const rawInput = body.email.trim();
+  const isWebhook = rawInput.startsWith('http://') || rawInput.startsWith('https://');
+  const email = !isWebhook && rawInput.includes('@') ? rawInput.toLowerCase() : null;
+  const webhookUrl = isWebhook ? rawInput : body.webhook_url || null;
+
+  if (!email && !webhookUrl) {
+    return c.json(
+      { error: 'Please enter a valid email address or webhook URL (Slack / Discord)' },
+      400
+    );
   }
 
   if (!c.env.actionguard_db) {
@@ -332,9 +389,10 @@ app.post('/api/watchlist/subscribe', async (c) => {
 
   // Find or create subscriber organization
   const subscriberOrgId = `org_${Math.random().toString(36).substring(2, 10)}`;
+  const orgName = email || webhookUrl?.substring(0, 30) || 'Subscriber';
   await c.env.actionguard_db
     .prepare(`INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)`)
-    .bind(subscriberOrgId, email, email.replace(/[^a-z0-9]/g, '_'))
+    .bind(subscriberOrgId, orgName, orgName.replace(/[^a-z0-9]/g, '_'))
     .run();
 
   const watchlistId = `watch_${Math.random().toString(36).substring(2, 10)}`;
@@ -358,13 +416,13 @@ app.post('/api/watchlist/subscribe', async (c) => {
       service.id,
       endpoint?.current_schema_sha256 || null,
       endpoint?.current_descriptions_sha256 || null,
-      body.webhook_url || null,
+      webhookUrl,
       email
     )
     .run();
 
   // Send Welcome Confirmation Email if Resend API key is configured
-  if (c.env.RESEND_API_KEY) {
+  if (email && c.env.RESEND_API_KEY) {
     c.executionCtx.waitUntil(
       sendEmailViaResend({
         apiKey: c.env.RESEND_API_KEY,
@@ -381,9 +439,17 @@ app.post('/api/watchlist/subscribe', async (c) => {
     );
   }
 
+  const destinationDesc = isWebhook
+    ? rawInput.includes('slack.com')
+      ? 'Slack Channel'
+      : rawInput.includes('discord.com')
+        ? 'Discord Channel'
+        : 'Webhook'
+    : 'email';
+
   return c.json({
     success: true,
-    message: `Active! You are now monitoring ${service.display_name} for breaking drift and outages.`,
+    message: `Active! Alerts for ${service.display_name} will be dispatched to your ${destinationDesc}.`,
   });
 });
 

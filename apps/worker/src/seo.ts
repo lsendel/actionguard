@@ -17,6 +17,7 @@ export function renderSitemapXml(services: Array<{ slug: string; created_at: str
     { loc: 'https://actionguard.ai/', priority: '1.0', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/index', priority: '0.9', changefreq: 'hourly' },
     { loc: 'https://actionguard.ai/pricing', priority: '0.9', changefreq: 'weekly' },
+    { loc: 'https://actionguard.ai/playground', priority: '0.9', changefreq: 'daily' },
     { loc: 'https://actionguard.ai/verify', priority: '0.8', changefreq: 'weekly' },
     { loc: 'https://actionguard.ai/docs/mcp-schema-drift', priority: '0.8', changefreq: 'weekly' },
     { loc: 'https://actionguard.ai/docs/a2a-agent-card-generator', priority: '0.8', changefreq: 'weekly' },

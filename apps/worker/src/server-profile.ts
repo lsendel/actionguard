@@ -311,8 +311,8 @@ await client.connect(transport);`;
         </div>
       </div>
       <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
-        <input type="email" id="subscribeEmail" placeholder="developer@yourcompany.com" style="flex:1;min-width:240px;background:#020617;border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;" />
-        <button onclick="subscribeAlerts(this)" style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;">Subscribe to Alerts &rarr;</button>
+        <input type="text" id="subscribeEmail" placeholder="developer@yourco.com or https://hooks.slack.com/..." style="flex:1;min-width:240px;background:#020617;border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:#fff;font-size:14px;outline:none;" />
+        <button onclick="subscribeAlerts(this)" style="background:#10b981;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;">Subscribe (Email or Webhook) &rarr;</button>
       </div>
       <div id="subscribeStatus" style="margin-top:10px;font-size:13px;display:none;"></div>
     </div>
@@ -405,10 +405,11 @@ await client.connect(transport);`;
       const status = document.getElementById('subscribeStatus');
       const email = input.value.trim();
 
-      if (!email || !email.includes('@')) {
+      const isUrl = email.startsWith('http://') || email.startsWith('https://');
+      if (!isUrl && (!email.includes('@') || email.length < 5)) {
         status.style.display = 'block';
         status.style.color = '#f87171';
-        status.innerText = 'Please enter a valid email address.';
+        status.innerText = 'Please enter a valid email address or webhook URL (Slack / Discord).';
         return;
       }
 

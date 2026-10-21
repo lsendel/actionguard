@@ -204,22 +204,22 @@ export async function dispatchDriftAlerts(
 
       if (sub.alert_webhook_url) {
         try {
+          const formatted = buildWebhookPayload(sub.alert_webhook_url, {
+            severity,
+            changeType,
+            serviceName,
+            domain,
+            slug,
+            oldHash,
+            newHash,
+            reportUrl,
+          });
+
           await fetch(sub.alert_webhook_url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              event: 'schema_drift',
-              severity,
-              changeType,
-              serviceName,
-              domain,
-              slug,
-              oldHash,
-              newHash,
-              reportUrl,
-              timestamp: new Date().toISOString(),
-            }),
-            signal: AbortSignal.timeout(3000),
+            headers: formatted.headers,
+            body: formatted.body,
+            signal: AbortSignal.timeout(4000),
           });
         } catch (err) {
           console.error('Webhook notification failed:', err);
@@ -229,6 +229,106 @@ export async function dispatchDriftAlerts(
   } catch (err) {
     console.error('Error dispatching drift alerts:', err);
   }
+}
+
+export function buildWebhookPayload(
+  url: string,
+  data: {
+    severity: string;
+    changeType: string;
+    serviceName: string;
+    domain: string;
+    slug: string;
+    oldHash: string;
+    newHash: string;
+    reportUrl: string;
+  }
+): { body: string; headers: Record<string, string> } {
+  const isBreaking = data.severity === 'breaking';
+
+  // 1. Slack Incoming Webhook (Block Kit)
+  if (url.includes('hooks.slack.com')) {
+    return {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: `${isBreaking ? '🚨 *Breaking Schema Drift*' : '⚠️ *Description Mutation*'} detected on <${data.reportUrl}|${data.serviceName}>`,
+        blocks: [
+          {
+            type: 'header',
+            text: {
+              type: 'plain_text',
+              text: isBreaking ? '🚨 Breaking Schema Drift Detected' : '⚠️ Tool Description Mutated',
+              emoji: true,
+            },
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Service:* <${data.reportUrl}|${data.serviceName}>\n*Domain:* \`${data.domain}\`\n*Severity:* \`${isBreaking ? 'CRITICAL (BREAKING)' : 'SECURITY WARNING'}\``,
+            },
+          },
+          {
+            type: 'section',
+            fields: [
+              { type: 'mrkdwn', text: `*Previous Hash:*\n\`${data.oldHash.substring(0, 16)}...\`` },
+              { type: 'mrkdwn', text: `*Detected Hash:*\n\`${data.newHash.substring(0, 16)}...\`` },
+            ],
+          },
+          {
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                text: { type: 'plain_text', text: 'Inspect Drift & Upstream Diff', emoji: true },
+                url: data.reportUrl,
+                style: isBreaking ? 'danger' : 'primary',
+              },
+            ],
+          },
+        ],
+      }),
+    };
+  }
+
+  // 2. Discord Webhook (Rich Embed)
+  if (url.includes('discord.com') || url.includes('discordapp.com')) {
+    return {
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: `${isBreaking ? '🚨 BREAKING SCHEMA DRIFT' : '⚠️ DESCRIPTION MUTATION'}: ${data.serviceName}`,
+            url: data.reportUrl,
+            color: isBreaking ? 15548997 : 16753920,
+            description: `ActionGuard continuous edge probing detected contract modifications on \`${data.domain}\`.`,
+            fields: [
+              { name: 'Severity', value: isBreaking ? 'Critical' : 'Warning', inline: true },
+              { name: 'Change Type', value: data.changeType, inline: true },
+              { name: 'Previous Hash', value: `\`${data.oldHash}\`` },
+              { name: 'Detected Hash', value: `\`${data.newHash}\`` },
+            ],
+            footer: { text: 'ActionGuard.ai Edge Monitor' },
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    };
+  }
+
+  // 3. Generic JSON Webhook
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-ActionGuard-Event': 'schema_drift',
+      'X-ActionGuard-Severity': data.severity,
+    },
+    body: JSON.stringify({
+      event: 'schema_drift',
+      ...data,
+      timestamp: new Date().toISOString(),
+    }),
+  };
 }
 
 function escapeHtml(str: string): string {

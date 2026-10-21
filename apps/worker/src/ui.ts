@@ -220,6 +220,7 @@ export function renderHomepageHtml(): string {
     </a>
     <div class="nav-links">
       <a href="/index" class="nav-link">Reliability Index</a>
+      <a href="/playground" class="nav-link">Playground</a>
       <a href="/verify" class="nav-link">Verify Domain</a>
       <a href="/pricing" class="nav-link">Pricing</a>
       <a href="/docs/mcp-schema-drift" class="nav-link">Protocol Docs</a>
