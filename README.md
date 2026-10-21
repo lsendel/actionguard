@@ -1,6 +1,8 @@
 # ActionGuard.ai
 
-[![ActionGuard Verified](https://actionguard.ai/badge/github-mcp.svg)](https://actionguard.ai/servers/github-mcp)
+[![ActionGuard Verified](https://actionguard.ai/badge/actionguard-mcp.svg)](https://actionguard.ai/servers/actionguard-mcp)
+[![Glama Quality Score](https://glama.ai/mcp/servers/lsendel/actionguard/badges/score.svg)](https://glama.ai/mcp/servers/lsendel/actionguard)
+[![Smithery](https://smithery.ai/badge/lsendel/actionguard)](https://smithery.ai/server/lsendel/actionguard)
 [![CI Tests](https://github.com/lsendel/actionguard/actions/workflows/publish-npm.yml/badge.svg)](https://github.com/lsendel/actionguard/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Edge: Cloudflare](https://img.shields.io/badge/Edge-Cloudflare%20Workers-orange.svg)](https://workers.cloudflare.com)
@@ -71,7 +73,36 @@ client = httpx.Client(base_url=f"{GATEWAY}?target={TARGET}&pin={PIN}")
 
 ---
 
-### 3. CLI Quick Run
+### 3. Run as an MCP Server (Claude Desktop, Cursor, Glama)
+
+You can run ActionGuard natively as a tool inside any MCP client:
+
+#### Stdio Mode (Claude Desktop `claude_desktop_config.json`)
+```json
+{
+  "mcpServers": {
+    "actionguard": {
+      "command": "npx",
+      "args": ["-y", "@actionguard/cli", "mcp"]
+    }
+  }
+}
+```
+
+#### Streamable HTTP Mode
+```json
+{
+  "mcpServers": {
+    "actionguard": {
+      "url": "https://actionguard.ai/mcp"
+    }
+  }
+}
+```
+
+---
+
+### 4. CLI Quick Run
 ```bash
 # Run 5-stage live protocol audit against any MCP or A2A endpoint
 npx @actionguard/cli inspect https://api.myservice.com/mcp
