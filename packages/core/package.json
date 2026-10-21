@@ -29,7 +29,7 @@
   "homepage": "https://actionguard.ai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/actionguard/actionguard.git"
+    "url": "git+https://github.com/actionguard/actionguard.git"
   },
   "scripts": {
     "build": "tsc -b",
