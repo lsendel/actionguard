@@ -1,6 +1,6 @@
 {
   "name": "ActionGuard Protocol Inspector Agent",
-  "description": "Evidence-first protocol inspection and drift detection for AI agents.",
+  "description": "Diff and poisoning detection for MCP servers: dual-hash fingerprinting to catch schema drift and poisoned tool descriptions before agents run them.",
   "version": "1.0.0",
   "documentationUrl": "https://actionguard.ai/docs",
   "provider": {
@@ -19,15 +19,23 @@
     "pushNotifications": false,
     "extendedAgentCard": false
   },
-  "defaultInputModes": ["application/json"],
-  "defaultOutputModes": ["application/json"],
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
   "skills": [
     {
       "id": "inspect_agent",
       "name": "Inspect Agent Endpoint",
       "description": "Executes 5-stage protocol and security audit against target endpoint.",
-      "tags": ["general"],
-      "examples": ["Inspect https://example.com/mcp"]
+      "tags": [
+        "general"
+      ],
+      "examples": [
+        "Inspect https://example.com/mcp"
+      ]
     }
   ]
 }

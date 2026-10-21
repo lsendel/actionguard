@@ -317,11 +317,13 @@ app.post('/api/catalog/sync', async (c) => {
 
 // Official MCP Registry Metadata (/server.json)
 app.get('/server.json', (c) => {
+  c.header('Access-Control-Allow-Origin', '*');
   return c.json({
     $schema: 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json',
     name: 'com.actionguard/inspector',
     title: 'ActionGuard Protocol Inspector Agent',
-    description: 'Evidence-first protocol inspection and drift detection for AI agents.',
+    description:
+      'Diff and poisoning detection for MCP servers: dual-hash fingerprinting to catch schema drift and poisoned tool descriptions before agents run them.',
     version: '1.0.0',
     remotes: [
       {
@@ -334,9 +336,11 @@ app.get('/server.json', (c) => {
 
 // A2A Protocol Agent Card (/.well-known/agent-card.json)
 app.get('/.well-known/agent-card.json', (c) => {
+  c.header('Access-Control-Allow-Origin', '*');
   return c.json({
     name: 'ActionGuard Protocol Inspector Agent',
-    description: 'Evidence-first protocol inspection and drift detection for AI agents.',
+    description:
+      'Diff and poisoning detection for MCP servers: dual-hash fingerprinting to catch schema drift and poisoned tool descriptions before agents run them.',
     version: '1.0.0',
     documentationUrl: 'https://actionguard.ai/docs',
     provider: {
