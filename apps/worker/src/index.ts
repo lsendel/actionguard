@@ -417,22 +417,25 @@ app.post('/api/verify/check', async (c) => {
   const token = body.token.trim();
   let verified = false;
 
-  // 1. Probe DNS TXT records via Cloudflare DoH
+  // 1. Probe DNS TXT records via Cloudflare DoH (checking both _actionguard subdomain and root)
   try {
-    const dohUrl = `https://cloudflare-dns.com/dns-query?name=${cleanDomain}&type=TXT`;
-    const res = await fetch(dohUrl, {
-      headers: { Accept: 'application/dns-json' },
-      signal: AbortSignal.timeout(3000),
-    });
+    for (const qName of [`_actionguard.${cleanDomain}`, cleanDomain]) {
+      if (verified) break;
+      const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(qName)}&type=TXT`;
+      const res = await fetch(dohUrl, {
+        headers: { Accept: 'application/dns-json' },
+        signal: AbortSignal.timeout(3000),
+      });
 
-    if (res.ok) {
-      const data = (await res.json()) as { Answer?: Array<{ data: string }> };
-      if (data.Answer) {
-        for (const ans of data.Answer) {
-          const raw = ans.data.replace(/^"|"$/g, '');
-          if (raw.includes(`actionguard-verification=${token}`) || raw === token) {
-            verified = true;
-            break;
+      if (res.ok) {
+        const data = (await res.json()) as { Answer?: Array<{ data: string }> };
+        if (data.Answer) {
+          for (const ans of data.Answer) {
+            const raw = ans.data.replace(/^"|"$/g, '');
+            if (raw.includes(`actionguard-verification=${token}`) || raw === token) {
+              verified = true;
+              break;
+            }
           }
         }
       }
@@ -617,7 +620,15 @@ async function persistInspectionReport(
   const orgId = existing?.org_id || `org_pub_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const serviceId = existing?.id || `srv_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const slug = existing?.slug || cleanDomain;
-  const endpointId = `ep_${serviceId.replace(/^srv_/, '')}`;
+
+  // Retrieve existing endpoint ID if present, to prevent creating duplicate endpoints
+  const existingEp = existing
+    ? await db
+        .prepare('SELECT id FROM service_endpoints WHERE service_id = ? LIMIT 1')
+        .bind(existing.id)
+        .first<{ id: string }>()
+    : null;
+  const endpointId = existingEp?.id || `ep_${serviceId.replace(/^srv_/, '')}`;
 
   const isUp = report.score.grade !== 'F';
   const status = isUp ? 'up' : 'down';
@@ -626,8 +637,7 @@ async function persistInspectionReport(
   const latencyFinding = report.findings.find(
     (f) => f.id === 'transport_latency_fast' || f.id === 'transport_latency_standard',
   );
-  const latencyMs =
-    typeof latencyFinding?.details === 'number' ? latencyFinding.details : isUp ? 100 : null;
+  const latencyMs = typeof latencyFinding?.details === 'number' ? latencyFinding.details : null;
 
   const schemaHash = report.hashes.schema_sha256 || null;
   const descriptionsHash = report.hashes.descriptions_sha256 || null;
@@ -1161,6 +1171,7 @@ app.all('/mcp', async (c) => {
 });
 
 // AI Agent Zero-Trust Runtime Security Proxy ("Cloudflare for MCP")
+app.all('/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
 app.all('/v1/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
 app.all('/v1/routing/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
 

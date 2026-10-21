@@ -165,7 +165,7 @@ export async function dispatchDriftAlerts(
   newHash: string,
   reportUrl: string,
 ): Promise<void> {
-  if (!env.actionguard_db || !env.RESEND_API_KEY) return;
+  if (!env.actionguard_db) return;
 
   try {
     const subscribers = await env.actionguard_db
@@ -192,7 +192,7 @@ export async function dispatchDriftAlerts(
     });
 
     for (const sub of subscribers.results) {
-      if (sub.notify_email) {
+      if (sub.notify_email && env.RESEND_API_KEY) {
         await sendEmailViaResend({
           apiKey: env.RESEND_API_KEY,
           from: env.ALERT_FROM_EMAIL || 'ActionGuard Drift Monitor <alerts@where.care>',
