@@ -117,7 +117,7 @@ jobs:
     contentHtml: `
       <h2>Why DNS-AID? Beyond Centralized Catalogs</h2>
       <p>Most AI discovery formats rely on centralized registries or GitHub scraping. <strong>DNS-AID (DNS-based Agent Identification and Discovery)</strong> explores solving this by utilizing the internet's most robust directory: the <strong>Domain Name System (DNS)</strong>.</p>
-      <p>DNS-AID is an individual Internet-Draft (<code>draft-mozleywilliams-dnsop-dnsaid</code>). It is not an IETF standard and has no working-group status. ActionGuard supports it as an experimental format.</p>
+      <p>DNS-AID is an individual Internet-Draft (<a href="https://datatracker.ietf.org/doc/draft-mozleywilliams-dnsop-dnsaid/" target="_blank" rel="noopener" style="color:#60a5fa;"><code>draft-mozleywilliams-dnsop-dnsaid</code></a>). It is not an IETF standard, has no working-group status, and ActionGuard supports it as an experimental format.</p>
 
       <h2>How DNS-AID Works Without New Record Types</h2>
       <p>Rather than inventing proprietary DNS records, DNS-AID layers on top of standard, widely deployed RFCs:</p>
