@@ -2,7 +2,7 @@
 
 [![ActionGuard Verified](https://actionguard.ai/badge/actionguard-mcp.svg)](https://actionguard.ai/servers/actionguard-mcp)
 [![Glama Quality Score](https://glama.ai/mcp/servers/lsendel/actionguard/badges/score.svg)](https://glama.ai/mcp/servers/lsendel/actionguard)
-[![Smithery](https://smithery.ai/badge/lsendel/actionguard)](https://smithery.ai/server/lsendel/actionguard)
+[![LightNow capabilities](https://lightnow.ai/badge/io.github.lsendel/actionguard)](https://lightnow.ai/servers/io.github.lsendel/actionguard)
 [![CI Tests](https://github.com/lsendel/actionguard/actions/workflows/publish-npm.yml/badge.svg)](https://github.com/lsendel/actionguard/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Edge: Cloudflare](https://img.shields.io/badge/Edge-Cloudflare%20Workers-orange.svg)](https://workers.cloudflare.com)
