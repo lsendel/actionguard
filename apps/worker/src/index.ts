@@ -12,7 +12,7 @@ import {
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
-import { renderBadgeSvg } from './badges.js';
+import { type BadgeStyle, renderBadgeSvg, renderShieldsJson } from './badges.js';
 import { syncCrawlerCatalog } from './crawler.js';
 import { renderDiffPage } from './diff-ui.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
@@ -24,6 +24,7 @@ import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
 import { renderServerProfileHtml } from './server-profile.js';
+import { createCheckoutSession, handleStripeWebhook, renderPricingSuccessHtml } from './stripe.js';
 import type { Env } from './types.js';
 import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
 import { renderVerifyHtml } from './verify.js';
@@ -251,6 +252,71 @@ app.get('/servers/:slug', async (c) => {
   );
 });
 
+// Server Changelog & Historical Drift Snapshots API
+app.get('/api/servers/:slug/changelog', async (c) => {
+  const slug = c.req.param('slug');
+  if (!c.env.actionguard_db) {
+    return c.json({ error: 'Database unavailable' }, 500);
+  }
+
+  const service = await c.env.actionguard_db
+    .prepare(
+      'SELECT id, slug, display_name, overall_grade FROM services WHERE slug = ? OR canonical_domain = ? LIMIT 1',
+    )
+    .bind(slug, slug)
+    .first<{ id: string; slug: string; display_name: string; overall_grade: string }>();
+
+  if (!service) {
+    return c.json({ error: 'Server not found' }, 404);
+  }
+
+  const endpoints = await c.env.actionguard_db
+    .prepare(
+      'SELECT id, url, current_schema_sha256, current_descriptions_sha256 FROM service_endpoints WHERE service_id = ?',
+    )
+    .bind(service.id)
+    .all<{
+      id: string;
+      url: string;
+      current_schema_sha256: string;
+      current_descriptions_sha256: string;
+    }>();
+
+  const endpointIds = (endpoints.results || []).map((e) => e.id);
+  if (endpointIds.length === 0) {
+    return c.json({ service, snapshots: [], driftEvents: [] });
+  }
+
+  const snapshots = await c.env.actionguard_db
+    .prepare(
+      `SELECT id, endpoint_id, observed_at, schema_sha256, descriptions_sha256, tool_count, lint_score
+       FROM snapshots
+       WHERE endpoint_id IN (${endpointIds.map(() => '?').join(',')})
+       ORDER BY observed_at DESC
+       LIMIT 50`,
+    )
+    .bind(...endpointIds)
+    .all();
+
+  const driftEvents = await c.env.actionguard_db
+    .prepare(
+      `SELECT id, endpoint_id, severity, change_type, summary_json, detected_at
+       FROM drift_events
+       WHERE endpoint_id IN (${endpointIds.map(() => '?').join(',')})
+       ORDER BY detected_at DESC
+       LIMIT 50`,
+    )
+    .bind(...endpointIds)
+    .all();
+
+  return c.json({
+    service,
+    endpoints: endpoints.results,
+    snapshots: snapshots.results || [],
+    driftEvents: driftEvents.results || [],
+  });
+});
+
 // High-Intent Developer Protocol Guides (/docs/:slug)
 app.get('/docs/:slug', (c) => {
   const slug = c.req.param('slug');
@@ -269,6 +335,40 @@ app.get('/verify', (c) => {
 // Transparent Pricing & Plans UI
 app.get('/pricing', (c) => {
   return c.html(renderPricingHtml());
+});
+
+app.get('/pricing/success', (c) => {
+  const tier = c.req.query('tier') || 'pro';
+  const email = c.req.query('email') || '';
+  return c.html(renderPricingSuccessHtml(tier, email));
+});
+
+// Self-Serve Stripe Checkout Session Creation
+app.post('/api/stripe/checkout', async (c) => {
+  try {
+    const body = await c.req.json<{ plan: 'indie' | 'pro'; email: string }>();
+    if (!body.email || !body.email.includes('@')) {
+      return c.json({ error: 'Valid email address is required' }, 400);
+    }
+    const plan = body.plan === 'pro' ? 'pro' : 'indie';
+    const origin = new URL(c.req.url).origin;
+    const result = await createCheckoutSession(c.env, {
+      plan,
+      email: body.email,
+      successUrl: `${origin}/pricing/success`,
+      cancelUrl: `${origin}/pricing`,
+    });
+    return c.json(result);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: `Failed to initiate checkout: ${msg}` }, 500);
+  }
+});
+
+// Stripe Subscription Webhook Handler
+app.post('/api/stripe/webhook', async (c) => {
+  const result = await handleStripeWebhook(c.req.raw, c.env);
+  return c.json(result);
 });
 
 // Interactive Schema Drift & Prompt Poisoning Simulator
@@ -885,7 +985,9 @@ app.get('/api/reports/:id', async (c) => {
 // Dynamic SVG Status Badge (<50ms Edge Response)
 app.get('/badge/:target', async (c) => {
   const rawTarget = c.req.param('target');
-  const slug = rawTarget.replace(/\.svg$/, '');
+  const isJson = rawTarget.endsWith('.json');
+  const slug = rawTarget.replace(/\.(svg|json)$/, '');
+  const style = (c.req.query('style') as BadgeStyle) || 'flat';
   let grade = 'Pending';
   let tier = 'Unverified (curated listing)';
   const label = 'ActionGuard';
@@ -926,7 +1028,14 @@ app.get('/badge/:target', async (c) => {
     // Fallback gracefully
   }
 
-  const svg = renderBadgeSvg(label, value, grade, tier);
+  if (isJson) {
+    const shieldsData = renderShieldsJson(label, value, grade, tier);
+    return c.json(shieldsData, 200, {
+      'Cache-Control': 'public, max-age=300, s-maxage=3600',
+    });
+  }
+
+  const svg = renderBadgeSvg(label, value, grade, tier, style);
   return new Response(svg, {
     headers: {
       'Content-Type': 'image/svg+xml; charset=utf-8',
@@ -1240,7 +1349,13 @@ app.all('/mcp', async (c) => {
 
 // AI Agent Zero-Trust Runtime Security Proxy ("Cloudflare for MCP")
 app.all('/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
+app.all('/proxy/:slug', async (c) =>
+  handleProxyRequest(c.req.raw, c.env, undefined, undefined, c.req.param('slug')),
+);
 app.all('/v1/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
+app.all('/v1/proxy/:slug', async (c) =>
+  handleProxyRequest(c.req.raw, c.env, undefined, undefined, c.req.param('slug')),
+);
 app.all('/v1/routing/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
 
 // Export default object with fetch and scheduled cron handler

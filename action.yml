@@ -16,15 +16,33 @@ inputs:
     description: 'Exit with non-zero exit code if schema or descriptions drifted'
     required: false
     default: 'true'
+  github_token:
+    description: 'GitHub token for posting pull request review comments (e.g. ${{ github.token }})'
+    required: false
+    default: ''
+  comment_pr:
+    description: 'Automatically post rich markdown integrity comments on Pull Requests'
+    required: false
+    default: 'true'
 
 runs:
   using: 'composite'
   steps:
     - name: Run ActionGuard Protocol Gate
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token || env.GITHUB_TOKEN }}
       run: |
+        EXTRA_ARGS=""
+        if [ "${{ inputs.comment_pr }}" = "true" ]; then
+          EXTRA_ARGS="$EXTRA_ARGS --comment-pr"
+        fi
+        if [ -n "${{ inputs.github_token }}" ]; then
+          EXTRA_ARGS="$EXTRA_ARGS --github-token ${{ inputs.github_token }}"
+        fi
+
         if [ -n "${{ inputs.pinned_hash }}" ]; then
-          node "${{ github.action_path }}/bin/action.cjs" check "${{ inputs.target_url }}" --pin "${{ inputs.pinned_hash }}"
+          node "${{ github.action_path }}/bin/action.cjs" check "${{ inputs.target_url }}" --pin "${{ inputs.pinned_hash }}" $EXTRA_ARGS
         else
-          node "${{ github.action_path }}/bin/action.cjs" inspect "${{ inputs.target_url }}"
+          node "${{ github.action_path }}/bin/action.cjs" inspect "${{ inputs.target_url }}" $EXTRA_ARGS
         fi

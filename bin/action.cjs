@@ -28,7 +28,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // packages/cli/src/index.ts
-var import_node_fs = __toESM(require("node:fs"), 1);
+var import_node_fs2 = __toESM(require("node:fs"), 1);
 var import_node_path = __toESM(require("node:path"), 1);
 var import_node_readline = __toESM(require("node:readline"), 1);
 
@@ -5008,6 +5008,142 @@ async function runInspection(targetUrl, options = {}) {
   };
 }
 
+// packages/cli/src/github-pr.ts
+var import_node_fs = __toESM(require("node:fs"), 1);
+function generatePrCommentMarkdown(report, pinnedHash) {
+  const hasDrift = pinnedHash ? report.hashes.schema_sha256 !== pinnedHash : false;
+  const grade = report.score.grade;
+  const scoreNum = report.score.numericalScore;
+  let gradeEmoji = "\u{1F7E2}";
+  if (grade === "A+" || grade === "A") gradeEmoji = "\u{1F6E1}\uFE0F";
+  else if (grade === "B") gradeEmoji = "\u{1F535}";
+  else if (grade === "C") gradeEmoji = "\u{1F7E1}";
+  else gradeEmoji = "\u{1F534}";
+  const driftVerdict = !pinnedHash ? "\u2139\uFE0F *No pin provided (inspection mode)*" : hasDrift ? "\u274C **BREAKING DRIFT DETECTED**" : "\u2705 **MATCHES PINNED HASH**";
+  const criticalIssues = report.findings.filter((f) => f.status === "fail" || f.status === "warn");
+  let findingsSection = "";
+  if (criticalIssues.length > 0) {
+    findingsSection = `
+### \u26A0\uFE0F Security & Schema Findings (${criticalIssues.length})
+
+| Level | Rule | Details |
+| :---: | :--- | :--- |
+`;
+    for (const item of criticalIssues) {
+      const badge = item.status === "fail" ? "\u{1F534} `FAIL`" : "\u{1F7E1} `WARN`";
+      findingsSection += `| ${badge} | **${item.title}** | ${item.message} |
+`;
+    }
+  } else {
+    findingsSection = "\n> \u2705 **Zero security vulnerabilities or protocol violations detected.**\n";
+  }
+  const comment = `## \u{1F6E1}\uFE0F ActionGuard MCP Integrity Report
+
+| Metric | Value | Status |
+| :--- | :--- | :---: |
+| **Security Score** | **Grade ${grade}** (${scoreNum}/100) | ${gradeEmoji} |
+| **Integrity Gate** | ${driftVerdict} | ${hasDrift ? "\u{1F6A8}" : "\u2705"} |
+| **Target URL** | \`${report.targetUrl}\` | \u{1F310} |
+| **Tool Count** | **${report.tools.length}** tools declared | \u{1F6E0}\uFE0F |
+| **Schema SHA-256** | \`${report.hashes.schema_sha256.substring(0, 16)}...\` | \u{1F512} |
+| **Prompt SHA-256** | \`${report.hashes.descriptions_sha256.substring(0, 16)}...\` | \u{1F4DD} |
+
+${findingsSection}
+
+${hasDrift ? `### \u{1F6A8} Action Required: Schema Drift Detected
+The remote MCP server returned tool definitions differing from your repository's pinned hash.
+- **Expected Pin:** \`${pinnedHash}\`
+- **Observed Hash:** \`${report.hashes.schema_sha256}\`
+
+If this change was intentional, update your workflow configuration:
+\`\`\`yaml
+- uses: lsendel/actionguard@v1
+  with:
+    target_url: '${report.targetUrl}'
+    pinned_hash: '${report.hashes.schema_sha256}'
+\`\`\`
+` : `### \u{1F4CC} Workflow Pin Configuration
+Lock this verified schema in your GitHub CI/CD pipeline:
+\`\`\`yaml
+- uses: lsendel/actionguard@v1
+  with:
+    target_url: '${report.targetUrl}'
+    pinned_hash: '${report.hashes.schema_sha256}'
+\`\`\`
+`}
+
+---
+*Inspect full diffs & telemetry at [ActionGuard.ai](https://actionguard.ai/diff) &bull; Continuous Zero-Trust Security for AI Agents*
+<!-- actionguard-ci-comment-signature -->`;
+  return comment;
+}
+async function postOrUpdatePrComment(report, options = {}) {
+  const token = options.token || process.env.GITHUB_TOKEN;
+  if (!token) return false;
+  let prNumber = options.prNumber;
+  let repo = options.repo || process.env.GITHUB_REPOSITORY;
+  const eventPath = options.eventPath || process.env.GITHUB_EVENT_PATH;
+  if (eventPath && import_node_fs.default.existsSync(eventPath)) {
+    try {
+      const eventData = JSON.parse(import_node_fs.default.readFileSync(eventPath, "utf8"));
+      if (eventData.pull_request?.number) {
+        prNumber = eventData.pull_request.number;
+      }
+      if (!repo && eventData.repository?.full_name) {
+        repo = eventData.repository.full_name;
+      }
+    } catch {
+    }
+  }
+  if (!repo || !prNumber) {
+    return false;
+  }
+  const commentBody = generatePrCommentMarkdown(report, options.pinnedHash);
+  const signature = "<!-- actionguard-ci-comment-signature -->";
+  const apiUrl = `https://api.github.com/repos/${repo}/issues/${prNumber}/comments`;
+  try {
+    const listRes = await fetch(apiUrl, {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "User-Agent": "ActionGuard-CI-Bot/1.0"
+      }
+    });
+    if (listRes.ok) {
+      const comments = await listRes.json();
+      const existing = comments.find((c) => c.body?.includes(signature));
+      if (existing) {
+        const updateUrl = `https://api.github.com/repos/${repo}/issues/comments/${existing.id}`;
+        const updateRes = await fetch(updateUrl, {
+          method: "PATCH",
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+            "User-Agent": "ActionGuard-CI-Bot/1.0"
+          },
+          body: JSON.stringify({ body: commentBody })
+        });
+        return updateRes.ok;
+      }
+    }
+    const createRes = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: "application/vnd.github.v3+json",
+        "Content-Type": "application/json",
+        "User-Agent": "ActionGuard-CI-Bot/1.0"
+      },
+      body: JSON.stringify({ body: commentBody })
+    });
+    return createRes.ok;
+  } catch (err) {
+    console.error("ActionGuard PR Commenter warning:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 // packages/cli/src/index.ts
 var args = process.argv.slice(2);
 var command = args[0];
@@ -5027,6 +5163,8 @@ function printHelp() {
   --pin <hash>             Expected schema_sha256 digest to enforce
   --format <json|sarif>    Output machine-readable report format
   --header <name:value>    Custom HTTP header for authenticated endpoints
+  --comment-pr             Post or update rich markdown review comment on GitHub PR
+  --github-token <token>   GitHub API token for PR comments (default $GITHUB_TOKEN)
 
 \x1B[1mEXAMPLES:\x1B[0m
   npx actionguard init
@@ -5044,9 +5182,9 @@ async function handleInit(customName) {
   let description = "Model Context Protocol (MCP) server";
   let repoUrl;
   const pkgPath = import_node_path.default.join(cwd, "package.json");
-  if (import_node_fs.default.existsSync(pkgPath)) {
+  if (import_node_fs2.default.existsSync(pkgPath)) {
     try {
-      const pkg = JSON.parse(import_node_fs.default.readFileSync(pkgPath, "utf8"));
+      const pkg = JSON.parse(import_node_fs2.default.readFileSync(pkgPath, "utf8"));
       if (!projectName && pkg.name) {
         projectName = pkg.name.replace(/^@[^/]+\//, "");
       }
@@ -5062,7 +5200,7 @@ async function handleInit(customName) {
   }
   const title = projectName.split(/[-_]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   const manifestPath = import_node_path.default.join(cwd, "actionguard.json");
-  if (!import_node_fs.default.existsSync(manifestPath)) {
+  if (!import_node_fs2.default.existsSync(manifestPath)) {
     const starterManifest = {
       $schema: "https://actionguard.ai/schemas/v1/manifest.schema.json",
       name: projectName,
@@ -5082,16 +5220,16 @@ async function handleInit(customName) {
         tools: []
       }
     };
-    import_node_fs.default.writeFileSync(manifestPath, JSON.stringify(starterManifest, null, 2));
+    import_node_fs2.default.writeFileSync(manifestPath, JSON.stringify(starterManifest, null, 2));
     console.log("  \x1B[32m\u2714\x1B[0m Generated \x1B[1mactionguard.json\x1B[0m");
   } else {
     console.log("  \x1B[33m\u2139\x1B[0m Found existing \x1B[1mactionguard.json\x1B[0m");
   }
   await handleCompile("actionguard.json");
   const workflowDir = import_node_path.default.join(cwd, ".github", "workflows");
-  import_node_fs.default.mkdirSync(workflowDir, { recursive: true });
+  import_node_fs2.default.mkdirSync(workflowDir, { recursive: true });
   const workflowPath = import_node_path.default.join(workflowDir, "verify-mcp.yml");
-  if (!import_node_fs.default.existsSync(workflowPath)) {
+  if (!import_node_fs2.default.existsSync(workflowPath)) {
     const workflowYaml = `name: ActionGuard MCP Schema Gate
 
 on:
@@ -5110,7 +5248,7 @@ jobs:
           target_url: 'https://example.com/mcp'
           # pinned_hash: 'expected-schema-sha256'
 `;
-    import_node_fs.default.writeFileSync(workflowPath, workflowYaml);
+    import_node_fs2.default.writeFileSync(workflowPath, workflowYaml);
     console.log(
       "  \x1B[32m\u2714\x1B[0m Generated \x1B[1m.github/workflows/verify-mcp.yml\x1B[0m (CI Gate)"
     );
@@ -5125,7 +5263,7 @@ jobs:
   );
   console.log("  3. Claim your domain badge:   \x1B[36mhttps://actionguard.ai/verify\x1B[0m\n");
 }
-async function handleInspect(targetUrl) {
+async function handleInspect(targetUrl, options = {}) {
   if (!targetUrl) {
     console.error("\x1B[31mError: Missing target URL.\x1B[0m Usage: actionguard inspect <url>");
     process.exit(1);
@@ -5136,6 +5274,11 @@ async function handleInspect(targetUrl) {
 `);
   try {
     const report = await runInspection(targetUrl);
+    if (options.commentPr || process.env.GITHUB_ACTIONS === "true") {
+      await postOrUpdatePrComment(report, {
+        token: options.githubToken
+      });
+    }
     let gradeColor = "\x1B[32m";
     if (report.score.grade === "B") gradeColor = "\x1B[34m";
     else if (report.score.grade === "C") gradeColor = "\x1B[33m";
@@ -5175,12 +5318,12 @@ async function handleInspect(targetUrl) {
 }
 async function handleCompile(manifestPath = "actionguard.json") {
   const resolvedPath = import_node_path.default.resolve(process.cwd(), manifestPath);
-  if (!import_node_fs.default.existsSync(resolvedPath)) {
+  if (!import_node_fs2.default.existsSync(resolvedPath)) {
     console.error(`\x1B[31mError:\x1B[0m Manifest file not found at ${resolvedPath}`);
     process.exit(1);
   }
   try {
-    const raw = JSON.parse(import_node_fs.default.readFileSync(resolvedPath, "utf8"));
+    const raw = JSON.parse(import_node_fs2.default.readFileSync(resolvedPath, "utf8"));
     const manifest = validateManifest(raw);
     console.log(
       `
@@ -5191,10 +5334,10 @@ async function handleCompile(manifestPath = "actionguard.json") {
     const a2aCard = compileToA2AAgentCard(manifest);
     const dnsRecords = compileToDnsAidRecords(manifest);
     const outDir = process.cwd();
-    import_node_fs.default.mkdirSync(import_node_path.default.join(outDir, ".well-known"), { recursive: true });
-    import_node_fs.default.writeFileSync(import_node_path.default.join(outDir, "server.json"), mcpJson);
-    import_node_fs.default.writeFileSync(import_node_path.default.join(outDir, ".well-known", "agent-card.json"), a2aCard);
-    import_node_fs.default.writeFileSync(import_node_path.default.join(outDir, "dns-aid.zone"), dnsRecords);
+    import_node_fs2.default.mkdirSync(import_node_path.default.join(outDir, ".well-known"), { recursive: true });
+    import_node_fs2.default.writeFileSync(import_node_path.default.join(outDir, "server.json"), mcpJson);
+    import_node_fs2.default.writeFileSync(import_node_path.default.join(outDir, ".well-known", "agent-card.json"), a2aCard);
+    import_node_fs2.default.writeFileSync(import_node_path.default.join(outDir, "dns-aid.zone"), dnsRecords);
     console.log("  \x1B[32m\u2714\x1B[0m Generated \x1B[1mserver.json\x1B[0m (Official MCP Registry)");
     console.log(
       "  \x1B[32m\u2714\x1B[0m Generated \x1B[1m.well-known/agent-card.json\x1B[0m (A2A Protocol v1.0)"
@@ -5262,7 +5405,7 @@ function generateSarifReport(report, pinnedHash) {
     ]
   };
 }
-async function handleCheck(targetUrl, pinnedHash, format = "text") {
+async function handleCheck(targetUrl, pinnedHash, format = "text", options = {}) {
   if (!targetUrl || !pinnedHash) {
     console.error("\x1B[31mError: Target URL and --pin <hash> are required.\x1B[0m");
     process.exit(1);
@@ -5280,6 +5423,12 @@ async function handleCheck(targetUrl, pinnedHash, format = "text") {
     const hasDrift = report.hashes.schema_sha256 !== pinnedHash;
     const hasSecurityFailures = report.score.failCount > 0;
     const isGithub = process.env.GITHUB_ACTIONS === "true";
+    if (options.commentPr || isGithub) {
+      await postOrUpdatePrComment(report, {
+        token: options.githubToken,
+        pinnedHash
+      });
+    }
     if (format === "json") {
       console.log(JSON.stringify(report, null, 2));
     } else if (format === "sarif") {
@@ -5487,12 +5636,15 @@ async function main() {
     printHelp();
     return;
   }
+  const commentPr = args.includes("--comment-pr");
+  const tokenIdx = args.indexOf("--github-token");
+  const githubToken = tokenIdx !== -1 ? args[tokenIdx + 1] : process.env.GITHUB_TOKEN;
   if (command === "init") {
     const nameIdx = args.indexOf("--name");
     const customName = nameIdx !== -1 ? args[nameIdx + 1] : void 0;
     await handleInit(customName);
   } else if (command === "inspect") {
-    await handleInspect(args[1]);
+    await handleInspect(args[1], { commentPr, githubToken });
   } else if (command === "compile") {
     await handleCompile(args[1]);
   } else if (command === "check") {
@@ -5500,7 +5652,7 @@ async function main() {
     const pinHash = pinIdx !== -1 ? args[pinIdx + 1] : void 0;
     const formatIdx = args.indexOf("--format");
     const format = formatIdx !== -1 ? args[formatIdx + 1] : "text";
-    await handleCheck(args[1], pinHash, format);
+    await handleCheck(args[1], pinHash, format, { commentPr, githubToken });
   } else if (command === "mcp" || command === "server") {
     await handleMcpStdio();
   } else {

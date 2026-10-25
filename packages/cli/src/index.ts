@@ -11,6 +11,7 @@ import {
   runInspection,
   validateManifest,
 } from '@actionguard/core';
+import { postOrUpdatePrComment } from './github-pr.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
@@ -31,6 +32,8 @@ function printHelp(): void {
   --pin <hash>             Expected schema_sha256 digest to enforce
   --format <json|sarif>    Output machine-readable report format
   --header <name:value>    Custom HTTP header for authenticated endpoints
+  --comment-pr             Post or update rich markdown review comment on GitHub PR
+  --github-token <token>   GitHub API token for PR comments (default $GITHUB_TOKEN)
 
 \x1b[1mEXAMPLES:\x1b[0m
   npx actionguard init
@@ -152,7 +155,10 @@ jobs:
   console.log('  3. Claim your domain badge:   \x1b[36mhttps://actionguard.ai/verify\x1b[0m\n');
 }
 
-async function handleInspect(targetUrl?: string): Promise<void> {
+async function handleInspect(
+  targetUrl?: string,
+  options: { commentPr?: boolean; githubToken?: string } = {},
+): Promise<void> {
   if (!targetUrl) {
     console.error('\x1b[31mError: Missing target URL.\x1b[0m Usage: actionguard inspect <url>');
     process.exit(1);
@@ -163,6 +169,12 @@ async function handleInspect(targetUrl?: string): Promise<void> {
 
   try {
     const report = await runInspection(targetUrl);
+
+    if (options.commentPr || process.env.GITHUB_ACTIONS === 'true') {
+      await postOrUpdatePrComment(report, {
+        token: options.githubToken,
+      });
+    }
 
     let gradeColor = '\x1b[32m'; // Green
     if (report.score.grade === 'B') gradeColor = '\x1b[34m';
@@ -314,6 +326,7 @@ async function handleCheck(
   targetUrl?: string,
   pinnedHash?: string,
   format: 'text' | 'json' | 'sarif' = 'text',
+  options: { commentPr?: boolean; githubToken?: string } = {},
 ): Promise<void> {
   if (!targetUrl || !pinnedHash) {
     console.error('\x1b[31mError: Target URL and --pin <hash> are required.\x1b[0m');
@@ -332,6 +345,14 @@ async function handleCheck(
     const hasDrift = report.hashes.schema_sha256 !== pinnedHash;
     const hasSecurityFailures = report.score.failCount > 0;
     const isGithub = process.env.GITHUB_ACTIONS === 'true';
+
+    // Post or update PR comment if in GitHub Actions or requested via flag
+    if (options.commentPr || isGithub) {
+      await postOrUpdatePrComment(report, {
+        token: options.githubToken,
+        pinnedHash,
+      });
+    }
 
     if (format === 'json') {
       console.log(JSON.stringify(report, null, 2));
@@ -554,12 +575,16 @@ async function main(): Promise<void> {
     return;
   }
 
+  const commentPr = args.includes('--comment-pr');
+  const tokenIdx = args.indexOf('--github-token');
+  const githubToken = tokenIdx !== -1 ? args[tokenIdx + 1] : process.env.GITHUB_TOKEN;
+
   if (command === 'init') {
     const nameIdx = args.indexOf('--name');
     const customName = nameIdx !== -1 ? args[nameIdx + 1] : undefined;
     await handleInit(customName);
   } else if (command === 'inspect') {
-    await handleInspect(args[1]);
+    await handleInspect(args[1], { commentPr, githubToken });
   } else if (command === 'compile') {
     await handleCompile(args[1]);
   } else if (command === 'check') {
@@ -567,7 +592,7 @@ async function main(): Promise<void> {
     const pinHash = pinIdx !== -1 ? args[pinIdx + 1] : undefined;
     const formatIdx = args.indexOf('--format');
     const format = formatIdx !== -1 ? (args[formatIdx + 1] as 'text' | 'json' | 'sarif') : 'text';
-    await handleCheck(args[1], pinHash, format);
+    await handleCheck(args[1], pinHash, format, { commentPr, githubToken });
   } else if (command === 'mcp' || command === 'server') {
     await handleMcpStdio();
   } else {

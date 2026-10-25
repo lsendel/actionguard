@@ -176,7 +176,7 @@ export function renderPricingHtml(): string {
           <li>15,000 Zero-Trust Proxy Calls / month</li>
           <li>Verified Profile &amp; Claimed README Badge</li>
         </ul>
-        <a href="mailto:sales@where.care?subject=ActionGuard%20Indie%20Upgrade" class="btn-plan">Get Indie Plan &rarr;</a>
+        <button onclick="startCheckout('indie')" class="btn-plan">Get Indie Plan &rarr;</button>
       </div>
 
       <!-- Pro Developer Plan -->
@@ -193,7 +193,7 @@ export function renderPricingHtml(): string {
           <li>CI/CD GitHub Action Schema Pinning</li>
           <li>Priority Edge Routing</li>
         </ul>
-        <a href="mailto:sales@where.care?subject=ActionGuard%20Pro%20Upgrade" class="btn-plan primary">Upgrade to Pro &rarr;</a>
+        <button onclick="startCheckout('pro')" class="btn-plan primary">Upgrade to Pro &rarr;</button>
       </div>
 
       <!-- Enterprise Gateway Plan -->
@@ -230,6 +230,30 @@ export function renderPricingHtml(): string {
   </footer>
 
   <script>
+    async function startCheckout(plan) {
+      const email = prompt('Enter your developer email to subscribe to the ' + plan.toUpperCase() + ' plan:');
+      if (!email || !email.includes('@')) {
+        if (email !== null) alert('Please enter a valid email address.');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan, email })
+        });
+        const data = await res.json();
+        if (data.checkoutUrl) {
+          window.location.href = data.checkoutUrl;
+        } else {
+          alert('Error initiating checkout: ' + (data.error || 'Please try again.'));
+        }
+      } catch (err) {
+        alert('Network error: ' + err.message);
+      }
+    }
+
     async function generateKey() {
       const email = document.getElementById('devEmail').value.trim();
       const resultBox = document.getElementById('keyResultBox');

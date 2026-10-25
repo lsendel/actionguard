@@ -785,6 +785,76 @@ export async function syncCrawlerCatalog(env: Env): Promise<{
     ]);
 
     newSlugs.push(s.slug);
+
+    // Record historical snapshot and detect drift against prior baseline
+    try {
+      const latestSnapshot = await env.actionguard_db
+        .prepare(
+          `SELECT id, schema_sha256, descriptions_sha256
+           FROM snapshots
+           WHERE endpoint_id = ?
+           ORDER BY observed_at DESC
+           LIMIT 1`,
+        )
+        .bind(endpointId)
+        .first<{ id: string; schema_sha256: string; descriptions_sha256: string }>();
+
+      if (
+        !latestSnapshot ||
+        latestSnapshot.schema_sha256 !== hashes.schema_sha256 ||
+        latestSnapshot.descriptions_sha256 !== hashes.descriptions_sha256
+      ) {
+        const snapshotId = `snap_${Math.random().toString(36).substring(2, 10)}`;
+        await env.actionguard_db
+          .prepare(
+            `INSERT INTO snapshots (id, endpoint_id, protocol_version, server_version, schema_sha256, descriptions_sha256, tool_count, estimated_token_cost, lint_score, r2_payload_key)
+             VALUES (?, ?, '2024-11-05', '1.0.0', ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            snapshotId,
+            endpointId,
+            hashes.schema_sha256,
+            hashes.descriptions_sha256,
+            s.tools.length,
+            0,
+            score.numericalScore,
+            `catalogs/${s.slug}/${hashes.schema_sha256}.json`,
+          )
+          .run();
+
+        if (latestSnapshot) {
+          const driftEventId = `drift_${Math.random().toString(36).substring(2, 10)}`;
+          const severity =
+            latestSnapshot.schema_sha256 !== hashes.schema_sha256 ? 'breaking' : 'warning';
+          const changeType =
+            latestSnapshot.schema_sha256 !== hashes.schema_sha256
+              ? 'schema_modified'
+              : 'description_mutated';
+          await env.actionguard_db
+            .prepare(
+              `INSERT INTO drift_events (id, endpoint_id, from_snapshot_id, to_snapshot_id, severity, change_type, summary_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .bind(
+              driftEventId,
+              endpointId,
+              latestSnapshot.id,
+              snapshotId,
+              severity,
+              changeType,
+              JSON.stringify({
+                from_schema: latestSnapshot.schema_sha256,
+                to_schema: hashes.schema_sha256,
+                from_descriptions: latestSnapshot.descriptions_sha256,
+                to_descriptions: hashes.descriptions_sha256,
+              }),
+            )
+            .run();
+        }
+      }
+    } catch {
+      // Non-fatal if snapshot insertion fails
+    }
   }
 
   const countRow = await env.actionguard_db

@@ -1,16 +1,83 @@
 import { validateAndTrackKey } from './keys.js';
 import type { Env } from './types.js';
 
+// Suspicious patterns that indicate runtime prompt injection or data exfiltration
+const RUNTIME_INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?previous\s+instructions/i,
+  /disregard\s+(all\s+)?(instructions|rules|context)/i,
+  /system\s+prompt\s*:/i,
+  /output\s+(the\s+)?(full\s+)?system\s+(prompt|instructions)/i,
+  /reveal\s+(the\s+)?(system|internal)\s+(prompt|instructions)/i,
+  /you\s+are\s+now\s+(in\s+)?developer\s+mode/i,
+  /bypass\s+(all\s+)?security\s+protocols/i,
+  /!\[.*?\]\(https?:\/\/[^\s\)]+\)/i, // Markdown image exfiltration
+  /<script[\s>]/i,
+  /javascript:/i,
+];
+
+function scanArgumentsForAdversarialPayload(obj: unknown): string | null {
+  if (typeof obj === 'string') {
+    for (const pattern of RUNTIME_INJECTION_PATTERNS) {
+      if (pattern.test(obj)) {
+        return `Adversarial pattern matched: ${pattern.toString()}`;
+      }
+    }
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const match = scanArgumentsForAdversarialPayload(item);
+      if (match) return match;
+    }
+    return null;
+  }
+  if (obj && typeof obj === 'object') {
+    for (const val of Object.values(obj)) {
+      const match = scanArgumentsForAdversarialPayload(val);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
 export async function handleProxyRequest(
   req: Request,
   env: Env,
   targetUrlParam?: string,
   pinnedHashParam?: string,
+  slugParam?: string,
 ): Promise<Response> {
-  const targetUrl =
+  const serviceSlug =
+    slugParam ||
+    req.headers.get('x-actionguard-service') ||
+    new URL(req.url).searchParams.get('service');
+
+  let targetUrl =
     targetUrlParam ||
     req.headers.get('x-actionguard-target') ||
     new URL(req.url).searchParams.get('target');
+
+  // Automatic slug-to-target resolution from D1 catalog if target is not directly provided
+  if (!targetUrl && serviceSlug && env.actionguard_db) {
+    const resolved = await env.actionguard_db
+      .prepare(
+        `SELECT e.url, e.current_schema_sha256, s.display_name, s.slug
+         FROM services s
+         JOIN service_endpoints e ON s.id = e.service_id
+         WHERE s.slug = ? OR LOWER(s.canonical_domain) = ?
+         LIMIT 1`,
+      )
+      .bind(serviceSlug, serviceSlug.toLowerCase())
+      .first<{
+        url: string;
+        current_schema_sha256: string;
+        display_name: string;
+        slug: string;
+      }>();
+    if (resolved?.url) {
+      targetUrl = resolved.url;
+    }
+  }
 
   const rawPin =
     pinnedHashParam ??
@@ -37,9 +104,6 @@ export async function handleProxyRequest(
     }
   }
   const pinnedHash = rawPin ? rawPin.trim() : null;
-
-  const serviceSlug =
-    req.headers.get('x-actionguard-service') || new URL(req.url).searchParams.get('service');
 
   // 0. API Key Authentication & Quota Enforcement
   const authHeader = req.headers.get('authorization');
@@ -80,7 +144,7 @@ export async function handleProxyRequest(
         error: {
           code: -32602,
           message:
-            'ActionGuard Proxy: Missing upstream target URL. Provide ?target=https://... or header X-ActionGuard-Target.',
+            'ActionGuard Proxy: Missing upstream target URL or unresolvable service slug. Provide /proxy/:slug or ?target=https://...',
         },
       }),
       { status: 400, headers: { 'Content-Type': 'application/json' } },
@@ -178,25 +242,86 @@ export async function handleProxyRequest(
     }
   }
 
-  // 3. Transparent Low-Latency Edge Proxy Execution
+  // 3. Runtime Zero-Trust Inspection for JSON-RPC tools/call
+  let requestBodyText: string | null = null;
+  if (req.method === 'POST') {
+    try {
+      requestBodyText = await req.text();
+      const parsedBody = JSON.parse(requestBodyText) as {
+        id?: unknown;
+        method?: string;
+        params?: {
+          name?: string;
+          arguments?: Record<string, unknown>;
+        };
+      };
+
+      if (parsedBody && (parsedBody.method === 'tools/call' || parsedBody.method === 'call_tool')) {
+        const toolName = parsedBody.params?.name || 'unknown_tool';
+        const toolArgs = parsedBody.params?.arguments;
+
+        // Scan arguments for adversarial prompt injection or exfiltration payloads
+        if (toolArgs) {
+          const violation = scanArgumentsForAdversarialPayload(toolArgs);
+          if (violation) {
+            return new Response(
+              JSON.stringify({
+                jsonrpc: '2.0',
+                id: parsedBody.id ?? null,
+                error: {
+                  code: -32602,
+                  message:
+                    'ActionGuard Zero-Trust Firewall: Execution blocked. Adversarial prompt injection or data exfiltration pattern detected in tool arguments.',
+                  data: {
+                    status: 'BLOCKED_PROMPT_INJECTION',
+                    tool: toolName,
+                    violation,
+                  },
+                },
+              }),
+              {
+                status: 400,
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-ActionGuard-Firewall': 'blocked-injection',
+                  'X-ActionGuard-Status': 'BLOCKED_SECURITY_VIOLATION',
+                },
+              },
+            );
+          }
+        }
+      }
+    } catch {
+      // If body is not JSON, proceed transparently
+    }
+  }
+
+  // 4. Transparent Low-Latency Edge Proxy Execution
   const startTime = Date.now();
   const forwardHeaders = new Headers(req.headers);
   forwardHeaders.delete('host');
   forwardHeaders.delete('x-actionguard-target');
   forwardHeaders.delete('x-actionguard-pin');
+  forwardHeaders.delete('x-actionguard-service');
   forwardHeaders.set('User-Agent', 'ActionGuard-Security-Proxy/1.0 (+https://actionguard.ai)');
 
   try {
     const upstreamRes = await fetch(targetUrl, {
       method: req.method,
       headers: forwardHeaders,
-      body: req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      body:
+        req.method !== 'GET' && req.method !== 'HEAD'
+          ? requestBodyText !== null
+            ? requestBodyText
+            : req.body
+          : undefined,
       signal: AbortSignal.timeout(10000),
     });
 
     const latencyMs = Date.now() - startTime;
     const responseHeaders = new Headers(upstreamRes.headers);
     responseHeaders.set('X-ActionGuard-Proxy', 'active');
+    responseHeaders.set('X-ActionGuard-Firewall', 'inspected');
     responseHeaders.set('X-ActionGuard-Latency-Ms', latencyMs.toString());
     responseHeaders.set('X-ActionGuard-Integrity', 'verified');
     responseHeaders.set('X-ActionGuard-Tier', clientTier);
