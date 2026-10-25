@@ -17,7 +17,7 @@ inputs:
     required: false
     default: 'true'
   github_token:
-    description: 'GitHub token for posting pull request review comments (e.g. ${{ github.token }})'
+    description: 'GitHub token for posting pull request review comments'
     required: false
     default: ''
   comment_pr:
@@ -30,14 +30,13 @@ runs:
   steps:
     - name: Run ActionGuard Protocol Gate
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github_token || env.GITHUB_TOKEN }}
       run: |
         EXTRA_ARGS=""
         if [ "${{ inputs.comment_pr }}" = "true" ]; then
           EXTRA_ARGS="$EXTRA_ARGS --comment-pr"
         fi
         if [ -n "${{ inputs.github_token }}" ]; then
+          export GITHUB_TOKEN="${{ inputs.github_token }}"
           EXTRA_ARGS="$EXTRA_ARGS --github-token ${{ inputs.github_token }}"
         fi
 
