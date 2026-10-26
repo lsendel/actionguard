@@ -22,6 +22,21 @@ export function renderServerProfileHtml(service: {
     last_checked_at?: string | null;
   }>;
   uptimeStats?: UptimeStats;
+  snapshots?: Array<{
+    id: string;
+    observed_at: string;
+    schema_sha256: string;
+    descriptions_sha256: string;
+    tool_count: number;
+    lint_score: number;
+  }>;
+  driftEvents?: Array<{
+    id: string;
+    severity: string;
+    change_type: string;
+    summary_json: string;
+    detected_at: string;
+  }>;
 }): string {
   const ep = service.endpoints && service.endpoints.length > 0 ? service.endpoints[0] : undefined;
   const isUnreachable =
@@ -348,6 +363,7 @@ export function renderServerProfileHtml(service: {
     <div style="display:flex;gap:16px;align-items:center;">
       <a href="/index" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Reliability Index</a>
       <a href="/diff" style="color:#60a5fa;text-decoration:none;font-size:14px;font-weight:600;">Diff Inspector</a>
+      <a href="/status" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Status</a>
       <a href="/verify" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Verify Domain</a>
       <a href="/pricing" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Pricing</a>
       <a href="/docs/mcp-schema-drift" style="color:var(--text-muted);text-decoration:none;font-size:14px;font-weight:600;">Docs</a>
@@ -497,6 +513,48 @@ export function renderServerProfileHtml(service: {
 
     <div style="font-size:12px;color:var(--text-muted);font-weight:700;margin-bottom:4px;">PINNED DESCRIPTIONS SHA-256</div>
     <div class="hash-block">${hasDescPin ? pinnedDescHash : '<span style="color:var(--text-muted);font-style:italic;">Not yet pinned</span>'}</div>
+
+    <div class="section-title">Security &amp; Schema Version Changelog</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+      Immutable audit history of recorded schema snapshots and detected alterations:
+    </p>
+
+    <div style="background:var(--card-bg);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:32px;">
+      ${
+        service.snapshots && service.snapshots.length > 0
+          ? `<div style="display:flex;flex-direction:column;gap:16px;">
+              ${service.snapshots
+                .map((snap, idx) => {
+                  const isLatest = idx === 0;
+                  return `
+                  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;padding-bottom:14px;${idx < (service.snapshots?.length ?? 1) - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.06);' : ''}">
+                    <div>
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:#93c5fd;font-weight:700;">${escapeHtml(snap.schema_sha256.substring(0, 16))}...</span>
+                        ${
+                          isLatest
+                            ? '<span style="background:rgba(16,185,129,0.2);color:#34d399;border:1px solid rgba(16,185,129,0.4);border-radius:4px;padding:2px 8px;font-size:11px;font-weight:700;">CURRENT ACTIVE</span>'
+                            : '<span style="background:rgba(255,255,255,0.06);color:#9ca3af;border-radius:4px;padding:2px 8px;font-size:11px;">HISTORICAL</span>'
+                        }
+                      </div>
+                      <div style="font-size:12px;color:var(--text-muted);">
+                        Observed: ${escapeHtml(new Date(snap.observed_at).toUTCString())} &bull; ${snap.tool_count} tools declared &bull; Score: ${snap.lint_score}/100
+                      </div>
+                    </div>
+                    <div>
+                      <a href="/diff" style="background:#1e293b;border:1px solid var(--border);color:#93c5fd;text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                        Compare in Diff &rarr;
+                      </a>
+                    </div>
+                  </div>`;
+                })
+                .join('')}
+            </div>`
+          : `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:13px;">
+              No drift events recorded. Initial baseline schema is active and monitored.
+            </div>`
+      }
+    </div>
 
     <div style="margin-top: 36px; padding: 24px; background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; text-align: center;">
       <h3 style="font-size:18px;margin-bottom:8px;">Are you the maintainer of ${escapeHtml(service.canonical_domain)}?</h3>

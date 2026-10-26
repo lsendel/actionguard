@@ -142,6 +142,80 @@ _chatbot._meta._agents.example.com.  IN  TXT   "v=aid1;ver=1.0.0;name=com.exampl
       <p>ActionGuard automatically generates these records from any inspected endpoint or <code>actionguard.json</code> manifest.</p>
     `,
   },
+  'zero-trust-proxy': {
+    slug: 'zero-trust-proxy',
+    title: 'Zero-Trust MCP Firewall & Runtime Security Proxy Gateway',
+    headline: 'Zero-Trust MCP Firewall: Runtime Policy Enforcement & Adversarial Protection',
+    description:
+      'Configure Claude Desktop, Cursor, and LangChain to route through ActionGuard proxy to block prompt injection and unpinned schema drift in real time.',
+    readingTime: '5 min read',
+    updatedAt: 'October 25, 2026',
+    contentHtml: `
+      <h2>The Need for a Runtime MCP Firewall</h2>
+      <p>Traditional MCP clients connect directly to remote HTTP or stdio servers without runtime inspection. If an upstream server is compromised or drifts, the agent immediately executes unauthorized tools or ingests poisoned prompts.</p>
+      <p>ActionGuard's <strong>Zero-Trust Proxy Gateway</strong> acts as an inline firewall (similar to Cloudflare for websites), inspecting every <code>tools/call</code> invocation at the edge before forwarding to upstream servers.</p>
+
+      <h2>Key Security Protections</h2>
+      <ul>
+        <li><strong>Adversarial Prompt Injection Blocker:</strong> Scans string arguments for system prompt extraction payloads, instruction override directives, and invisible markdown exfiltration links.</li>
+        <li><strong>Cryptographic Pinning Gate:</strong> Rejects tool calls if the remote server's schema has drifted from your pinned <code>schema_sha256</code> hash.</li>
+        <li><strong>SSRF &amp; Private Network Protection:</strong> Blocks calls attempting to pivot into local loopbacks (127.0.0.1, 169.254.169.254) or VPC subnets.</li>
+      </ul>
+
+      <h2>Configuring Claude Desktop or Cursor</h2>
+      <p>Replace your direct server URL with the ActionGuard proxy URL:</p>
+      <pre><code>{
+  "mcpServers": {
+    "sequential-thinking": {
+      "url": "https://actionguard.ai/proxy/sequentialthinking-mcp",
+      "headers": {
+        "x-actionguard-pin": "a332729b0c307c465918a755016755db9389cce8aa53b75c706cf690bf7d4988"
+      }
+    }
+  }
+}</code></pre>
+    `,
+  },
+  'github-pr-gate': {
+    slug: 'github-pr-gate',
+    title: 'Integrating ActionGuard GitHub PR Commenter Bot & SARIF Scanning',
+    headline: 'Automated MCP Protocol Gates & Visual PR Reviews in GitHub Actions',
+    description:
+      'Step-by-step setup guide for configuring ActionGuard composite action, automatic PR review comments, and SARIF security annotations.',
+    readingTime: '4 min read',
+    updatedAt: 'October 25, 2026',
+    contentHtml: `
+      <h2>Automated Pull Request Review Bot</h2>
+      <p>ActionGuard provides an official GitHub Composite Action (<code>lsendel/actionguard@v1</code>) that automatically evaluates MCP server pull requests and posts rich markdown integrity reports directly onto PRs.</p>
+
+      <h2>Workflow Configuration</h2>
+      <p>Create <code>.github/workflows/verify-mcp.yml</code> in your repository:</p>
+      <pre><code>name: Verify MCP Server
+on:
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lsendel/actionguard@v1
+        with:
+          target_url: 'https://api.example.com/mcp'
+          pinned_hash: 'a332729b0c307c465918a755016755db9389cce8aa53b75c706cf690bf7d4988'
+          github_token: \${{ secrets.GITHUB_TOKEN }}
+</code></pre>
+
+      <h2>SARIF GitHub Advanced Security Export</h2>
+      <p>Export results directly into GitHub Code Scanning:</p>
+      <pre><code>npx actionguard check https://api.example.com/mcp --pin &lt;hash&gt; --format sarif &gt; results.sarif
+</code></pre>
+    `,
+  },
 };
 
 export function renderGuideHtml(guide: GuideArticle): string {

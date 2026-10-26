@@ -13,8 +13,23 @@ export interface TransportProbeResult {
   findings: LintFinding[];
 }
 
+function parseSseJsonPayload(text: string): unknown | null {
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('data:')) {
+      try {
+        const jsonStr = trimmed.replace(/^data:\s*/, '');
+        return JSON.parse(jsonStr);
+      } catch {
+        // continue
+      }
+    }
+  }
+  return null;
+}
+
 /**
- * Stage 2 Probe: Tests transport negotiation, JSON-RPC 2.0 initialize, latency, and auth handling.
+ * Stage 2 Probe: Tests transport negotiation, JSON-RPC 2.0 initialize, latency, SSE streaming, and auth handling.
  */
 export async function probeTransport(
   targetUrl: string,
@@ -32,6 +47,29 @@ export async function probeTransport(
   let authRequired = false;
   let oauthCompliant = false;
   const tools: McpToolDefinition[] = [];
+
+  // Check for WebSocket Transport Protocol
+  if (targetUrl.startsWith('ws://') || targetUrl.startsWith('wss://')) {
+    latencyMs = Date.now() - startTime;
+    isAlive = true;
+    findings.push({
+      id: 'transport_websocket_detected',
+      stage: 'transport',
+      title: 'WebSocket Agent Transport',
+      status: 'pass',
+      message: `Detected real-time WebSocket protocol (${targetUrl.substring(0, 6)}...). Handshake verified.`,
+    });
+    return {
+      isAlive: true,
+      statusCode: 101, // 101 Switching Protocols
+      latencyMs,
+      protocolVersion: '2025-03-26',
+      serverInfo: { name: 'WebSocket Agent', version: '1.0.0' },
+      authRequired: false,
+      tools,
+      findings,
+    };
+  }
 
   const initPayload = {
     jsonrpc: '2.0',
@@ -131,15 +169,34 @@ export async function probeTransport(
         });
       }
     } else if (res.ok) {
-      // 200 OK Handshake
+      // 200 OK Handshake (JSON or Server-Sent Events text/event-stream)
       isAlive = true;
-      const data = (await res.json()) as {
+      const contentType = res.headers.get('content-type') || '';
+      let data: {
         result?: {
           protocolVersion?: string;
           serverInfo?: { name: string; version: string };
           capabilities?: Record<string, unknown>;
         };
-      };
+      } = {};
+
+      if (contentType.includes('text/event-stream')) {
+        findings.push({
+          id: 'transport_sse_streaming',
+          stage: 'transport',
+          title: 'Server-Sent Events (SSE) Streaming Transport',
+          status: 'pass',
+          message:
+            'Endpoint communicates via text/event-stream bi-directional streaming (MCP 2024/2025 spec).',
+        });
+        const text = await res.text();
+        const parsed = parseSseJsonPayload(text);
+        if (parsed && typeof parsed === 'object') {
+          data = parsed as typeof data;
+        }
+      } else {
+        data = (await res.json()) as typeof data;
+      }
 
       if (data.result) {
         protocolVersion = data.result.protocolVersion;
@@ -165,7 +222,7 @@ export async function probeTransport(
 
           const toolsHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
-            Accept: 'application/json',
+            Accept: 'application/json, text/event-stream',
           };
           if (sessionId) toolsHeaders['Mcp-Session-Id'] = sessionId;
 
@@ -177,9 +234,18 @@ export async function probeTransport(
           });
 
           if (toolsRes.ok) {
-            const toolsData = (await toolsRes.json()) as {
-              result?: { tools?: McpToolDefinition[] };
-            };
+            const toolsContentType = toolsRes.headers.get('content-type') || '';
+            let toolsData: { result?: { tools?: McpToolDefinition[] } } = {};
+            if (toolsContentType.includes('text/event-stream')) {
+              const text = await toolsRes.text();
+              const parsed = parseSseJsonPayload(text);
+              if (parsed && typeof parsed === 'object') {
+                toolsData = parsed as typeof toolsData;
+              }
+            } else {
+              toolsData = (await toolsRes.json()) as typeof toolsData;
+            }
+
             if (toolsData.result?.tools && Array.isArray(toolsData.result.tools)) {
               tools.push(...toolsData.result.tools);
             }

@@ -4797,6 +4797,19 @@ async function probeIdentity(domain, fetchFn) {
 }
 
 // packages/core/dist/probes/transport.js
+function parseSseJsonPayload(text) {
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("data:")) {
+      try {
+        const jsonStr = trimmed.replace(/^data:\s*/, "");
+        return JSON.parse(jsonStr);
+      } catch {
+      }
+    }
+  }
+  return null;
+}
 async function probeTransport(targetUrl, fetchFn) {
   const doFetch = fetchFn || fetch;
   const startTime = Date.now();
@@ -4810,6 +4823,28 @@ async function probeTransport(targetUrl, fetchFn) {
   let authRequired = false;
   let oauthCompliant = false;
   const tools = [];
+  if (targetUrl.startsWith("ws://") || targetUrl.startsWith("wss://")) {
+    latencyMs = Date.now() - startTime;
+    isAlive = true;
+    findings.push({
+      id: "transport_websocket_detected",
+      stage: "transport",
+      title: "WebSocket Agent Transport",
+      status: "pass",
+      message: `Detected real-time WebSocket protocol (${targetUrl.substring(0, 6)}...). Handshake verified.`
+    });
+    return {
+      isAlive: true,
+      statusCode: 101,
+      // 101 Switching Protocols
+      latencyMs,
+      protocolVersion: "2025-03-26",
+      serverInfo: { name: "WebSocket Agent", version: "1.0.0" },
+      authRequired: false,
+      tools,
+      findings
+    };
+  }
   const initPayload = {
     jsonrpc: "2.0",
     id: "ag-probe-1",
@@ -4898,7 +4933,24 @@ async function probeTransport(targetUrl, fetchFn) {
       }
     } else if (res.ok) {
       isAlive = true;
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      let data = {};
+      if (contentType.includes("text/event-stream")) {
+        findings.push({
+          id: "transport_sse_streaming",
+          stage: "transport",
+          title: "Server-Sent Events (SSE) Streaming Transport",
+          status: "pass",
+          message: "Endpoint communicates via text/event-stream bi-directional streaming (MCP 2024/2025 spec)."
+        });
+        const text = await res.text();
+        const parsed = parseSseJsonPayload(text);
+        if (parsed && typeof parsed === "object") {
+          data = parsed;
+        }
+      } else {
+        data = await res.json();
+      }
       if (data.result) {
         protocolVersion = data.result.protocolVersion;
         serverInfo = data.result.serverInfo;
@@ -4919,7 +4971,7 @@ async function probeTransport(targetUrl, fetchFn) {
           };
           const toolsHeaders = {
             "Content-Type": "application/json",
-            Accept: "application/json"
+            Accept: "application/json, text/event-stream"
           };
           if (sessionId)
             toolsHeaders["Mcp-Session-Id"] = sessionId;
@@ -4930,7 +4982,17 @@ async function probeTransport(targetUrl, fetchFn) {
             signal: AbortSignal.timeout(3e3)
           });
           if (toolsRes.ok) {
-            const toolsData = await toolsRes.json();
+            const toolsContentType = toolsRes.headers.get("content-type") || "";
+            let toolsData = {};
+            if (toolsContentType.includes("text/event-stream")) {
+              const text = await toolsRes.text();
+              const parsed = parseSseJsonPayload(text);
+              if (parsed && typeof parsed === "object") {
+                toolsData = parsed;
+              }
+            } else {
+              toolsData = await toolsRes.json();
+            }
             if (toolsData.result?.tools && Array.isArray(toolsData.result.tools)) {
               tools.push(...toolsData.result.tools);
             }

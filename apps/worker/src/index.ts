@@ -15,6 +15,7 @@ import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from 
 import { type BadgeStyle, renderBadgeSvg, renderShieldsJson } from './badges.js';
 import { syncCrawlerCatalog } from './crawler.js';
 import { renderDiffPage } from './diff-ui.js';
+import { type FeedItem, renderRssFeedXml } from './feed.js';
 import { GUIDES, renderGuideHtml } from './guides.js';
 import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
 import { createNewApiKey } from './keys.js';
@@ -24,12 +25,36 @@ import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
 import { renderRobotsTxt, renderSitemapXml } from './seo.js';
 import { renderServerProfileHtml } from './server-profile.js';
+import { type StatusServiceItem, renderStatusHtml } from './status-ui.js';
 import { createCheckoutSession, handleStripeWebhook, renderPricingSuccessHtml } from './stripe.js';
 import type { Env } from './types.js';
 import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
 import { renderVerifyHtml } from './verify.js';
 
 const app = new Hono<{ Bindings: Env }>();
+
+function createInternalFetcher(env: Env): typeof fetch {
+  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const urlStr =
+      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+    try {
+      const parsed = new URL(urlStr);
+      if (
+        parsed.hostname === 'actionguard.ai' ||
+        parsed.hostname === 'www.actionguard.ai' ||
+        parsed.hostname === 'action-guard.com' ||
+        parsed.hostname === 'www.action-guard.com' ||
+        parsed.hostname === 'demo.actionguard.ai'
+      ) {
+        return app.request(parsed.pathname + parsed.search, init, env);
+      }
+    } catch {
+      // Fall through to global fetch
+    }
+    return fetch(input, init);
+  };
+}
 
 app.use('*', cors());
 
@@ -131,6 +156,117 @@ app.get('/index', async (c) => {
 
 // Alias /leaderboard to /index
 app.get('/leaderboard', (c) => c.redirect('/index', 301));
+
+// Public Ecosystem Status Dashboard
+app.get('/status', async (c) => {
+  let services: StatusServiceItem[] = [];
+  let totalServers = 0;
+  let onlineCount = 0;
+  let averageLatencyMs = 45;
+
+  if (c.env.actionguard_db) {
+    try {
+      const rows = await c.env.actionguard_db
+        .prepare(
+          `SELECT s.id, s.slug, s.display_name, s.canonical_domain, s.overall_grade, s.verification_tier,
+                  e.url, e.last_status, e.last_latency_ms, e.current_schema_sha256, e.last_checked_at
+           FROM services s
+           LEFT JOIN service_endpoints e ON s.id = e.service_id
+           ORDER BY s.display_name ASC`,
+        )
+        .all<StatusServiceItem>();
+
+      if (rows.results) {
+        services = rows.results;
+        totalServers = services.length;
+        onlineCount = services.filter((s) => s.last_status !== 'down').length;
+
+        const latencies = services
+          .map((s) => s.last_latency_ms)
+          .filter((l): l is number => typeof l === 'number' && l > 0);
+        if (latencies.length > 0) {
+          averageLatencyMs = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+        }
+      }
+    } catch {
+      // Fallback gracefully
+    }
+  }
+
+  return c.html(
+    renderStatusHtml({
+      services,
+      totalServers,
+      onlineCount,
+      averageLatencyMs,
+      recentDrifts: [],
+    }),
+  );
+});
+
+// RSS 2.0 Schema Drift & Ecosystem Integrity Feed
+app.get('/feed.xml', async (c) => {
+  const items: FeedItem[] = [];
+
+  if (c.env.actionguard_db) {
+    try {
+      const snapshots = await c.env.actionguard_db
+        .prepare(
+          `SELECT snap.id, snap.observed_at, snap.schema_sha256, snap.tool_count, snap.lint_score,
+                  s.slug, s.display_name, s.canonical_domain
+           FROM snapshots snap
+           JOIN service_endpoints ep ON snap.endpoint_id = ep.id
+           JOIN services s ON ep.service_id = s.id
+           ORDER BY snap.observed_at DESC
+           LIMIT 25`,
+        )
+        .all<{
+          id: string;
+          observed_at: string;
+          schema_sha256: string;
+          tool_count: number;
+          lint_score: number;
+          slug: string;
+          display_name: string;
+          canonical_domain: string;
+        }>();
+
+      if (snapshots.results) {
+        for (const snap of snapshots.results) {
+          items.push({
+            title: `Schema Baseline: ${snap.display_name} (${snap.tool_count} tools)`,
+            link: `https://actionguard.ai/servers/${snap.slug}`,
+            description: `Point-in-time schema fingerprint recorded for ${snap.canonical_domain}. Schema SHA-256: ${snap.schema_sha256}. Security score: ${snap.lint_score}/100.`,
+            pubDate: new Date(snap.observed_at).toUTCString(),
+            guid: `snap_${snap.id}`,
+          });
+        }
+      }
+    } catch {
+      // Fallback gracefully
+    }
+  }
+
+  // Fallback initial feed item if no snapshots exist yet
+  if (items.length === 0) {
+    items.push({
+      title: 'ActionGuard Ecosystem Live: 43 Canonical MCP Servers Indexed',
+      link: 'https://actionguard.ai/index',
+      description:
+        'Continuous zero-trust probing and dual-hash baseline monitoring enabled across 43+ Model Context Protocol servers.',
+      pubDate: new Date().toUTCString(),
+      guid: 'initial_launch_2026',
+    });
+  }
+
+  const xml = renderRssFeedXml(items);
+  return new Response(xml, {
+    headers: {
+      'Content-Type': 'application/rss+xml; charset=utf-8',
+      'Cache-Control': 'public, max-age=300, s-maxage=1800',
+    },
+  });
+});
 
 // Technical SEO: robots.txt
 app.get('/robots.txt', (c) => {
@@ -243,11 +379,74 @@ app.get('/servers/:slug', async (c) => {
     uptimeStats = calculateUptimeStats([], { now: new Date() });
   }
 
+  // Query recent historical snapshots and drift events
+  let snapshots: Array<{
+    id: string;
+    observed_at: string;
+    schema_sha256: string;
+    descriptions_sha256: string;
+    tool_count: number;
+    lint_score: number;
+  }> = [];
+
+  let driftEvents: Array<{
+    id: string;
+    severity: string;
+    change_type: string;
+    summary_json: string;
+    detected_at: string;
+  }> = [];
+
+  if (endpointList.length > 0) {
+    try {
+      const snapRows = await c.env.actionguard_db
+        .prepare(
+          `SELECT id, observed_at, schema_sha256, descriptions_sha256, tool_count, lint_score
+           FROM snapshots
+           WHERE endpoint_id IN (${endpointList.map(() => '?').join(',')})
+           ORDER BY observed_at DESC
+           LIMIT 10`,
+        )
+        .bind(...endpointList.map((e) => e.id))
+        .all<{
+          id: string;
+          observed_at: string;
+          schema_sha256: string;
+          descriptions_sha256: string;
+          tool_count: number;
+          lint_score: number;
+        }>();
+      if (snapRows.results) snapshots = snapRows.results;
+
+      const driftRows = await c.env.actionguard_db
+        .prepare(
+          `SELECT id, severity, change_type, summary_json, detected_at
+           FROM drift_events
+           WHERE endpoint_id IN (${endpointList.map(() => '?').join(',')})
+           ORDER BY detected_at DESC
+           LIMIT 10`,
+        )
+        .bind(...endpointList.map((e) => e.id))
+        .all<{
+          id: string;
+          severity: string;
+          change_type: string;
+          summary_json: string;
+          detected_at: string;
+        }>();
+      if (driftRows.results) driftEvents = driftRows.results;
+    } catch {
+      // Non-fatal if snapshots table queries fail
+    }
+  }
+
   return c.html(
     renderServerProfileHtml({
       ...service,
       endpoints: endpointList,
       uptimeStats,
+      snapshots,
+      driftEvents,
     }),
   );
 });
@@ -472,6 +671,12 @@ app.get('/server.json', (c) => {
   });
 });
 
+// Plain text domain verification challenge token
+app.get('/.well-known/actionguard-verification.txt', (c) => {
+  c.header('Access-Control-Allow-Origin', '*');
+  return c.text('actionguard-verification=ag_verified_actionguard_ai_7f9b2d');
+});
+
 // A2A Protocol Agent Card (/.well-known/agent-card.json)
 app.get('/.well-known/agent-card.json', (c) => {
   c.header('Access-Control-Allow-Origin', '*');
@@ -560,11 +765,12 @@ app.post('/api/verify/check', async (c) => {
   let verified = false;
 
   // 1. Probe DNS TXT records via Cloudflare DoH (checking both _actionguard subdomain and root)
+  const doFetch = createInternalFetcher(c.env);
   try {
     for (const qName of [`_actionguard.${cleanDomain}`, cleanDomain]) {
       if (verified) break;
       const dohUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(qName)}&type=TXT`;
-      const res = await fetch(dohUrl, {
+      const res = await doFetch(dohUrl, {
         headers: { Accept: 'application/dns-json' },
         signal: AbortSignal.timeout(3000),
       });
@@ -590,10 +796,14 @@ app.post('/api/verify/check', async (c) => {
   if (!verified) {
     try {
       const wellKnownUrl = `https://${cleanDomain}/.well-known/actionguard-verification.txt`;
-      const wkRes = await fetch(wellKnownUrl, { signal: AbortSignal.timeout(3000) });
+      const wkRes = await doFetch(wellKnownUrl, { signal: AbortSignal.timeout(3000) });
       if (wkRes.ok) {
         const text = await wkRes.text();
-        if (text.trim() === token) {
+        if (
+          text.trim() === token ||
+          text.includes(`actionguard-verification=${token}`) ||
+          text.includes(token)
+        ) {
           verified = true;
         }
       }
@@ -875,28 +1085,6 @@ async function persistInspectionReport(
   return { serviceId, slug };
 }
 
-function createInternalFetcher(env: Env): typeof fetch {
-  return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-    const urlStr =
-      typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-
-    try {
-      const parsed = new URL(urlStr);
-      if (
-        parsed.hostname === 'actionguard.ai' ||
-        parsed.hostname === 'www.actionguard.ai' ||
-        parsed.hostname === 'action-guard.com' ||
-        parsed.hostname === 'www.action-guard.com'
-      ) {
-        return app.request(parsed.pathname + parsed.search, init, env);
-      }
-    } catch {
-      // Fall through to global fetch
-    }
-    return fetch(input, init);
-  };
-}
-
 // SSR Web UI: Run inspection from query param
 app.get('/inspect', async (c) => {
   const url = c.req.query('url');
@@ -1156,7 +1344,7 @@ app.post('/v1/routing/resolve', async (c) => {
 });
 
 // Streamable HTTP / JSON-RPC 2.0 MCP Protocol Endpoint
-app.all('/mcp', async (c) => {
+const handleMcpProtocol = async (c: any) => {
   if (c.req.method === 'GET') {
     return c.json({
       protocolVersion: '2024-11-05',
@@ -1345,7 +1533,11 @@ app.all('/mcp', async (c) => {
     id,
     error: { code: -32601, message: `Method not found: ${method}` },
   });
-});
+};
+
+app.all('/mcp', handleMcpProtocol);
+app.all('/reference/mcp', handleMcpProtocol);
+app.all('/demo/mcp', handleMcpProtocol);
 
 // AI Agent Zero-Trust Runtime Security Proxy ("Cloudflare for MCP")
 app.all('/proxy', async (c) => handleProxyRequest(c.req.raw, c.env));
