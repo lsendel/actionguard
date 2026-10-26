@@ -9,7 +9,7 @@ import {
   lintPromptInjection,
   runInspection,
 } from '@actionguard/core';
-import { Hono } from 'hono';
+import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
 import { type BadgeStyle, renderBadgeSvg, renderShieldsJson } from './badges.js';
@@ -1344,7 +1344,7 @@ app.post('/v1/routing/resolve', async (c) => {
 });
 
 // Streamable HTTP / JSON-RPC 2.0 MCP Protocol Endpoint
-const handleMcpProtocol = async (c: any) => {
+const handleMcpProtocol = async (c: Context<{ Bindings: Env }>) => {
   if (c.req.method === 'GET') {
     return c.json({
       protocolVersion: '2024-11-05',
