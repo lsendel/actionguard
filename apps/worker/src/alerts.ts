@@ -331,6 +331,110 @@ export function buildWebhookPayload(
   };
 }
 
+export async function dispatchWeeklyDigest(env: Env): Promise<{
+  subscribersNotified: number;
+  driftEventsSummarized: number;
+}> {
+  if (!env.actionguard_db) return { subscribersNotified: 0, driftEventsSummarized: 0 };
+
+  // Fetch all drift events from the past 7 days
+  const recentEvents = await env.actionguard_db
+    .prepare(
+      `SELECT d.id, d.severity, d.change_type, d.detected_at, s.slug, s.display_name, s.canonical_domain
+       FROM drift_events d
+       JOIN service_endpoints ep ON d.endpoint_id = ep.id
+       JOIN services s ON ep.service_id = s.id
+       WHERE d.detected_at >= datetime('now', '-7 days')
+       ORDER BY d.detected_at DESC`,
+    )
+    .all<{
+      id: string;
+      severity: string;
+      change_type: string;
+      detected_at: string;
+      slug: string;
+      display_name: string;
+      canonical_domain: string;
+    }>();
+
+  const events = recentEvents.results || [];
+
+  // Fetch all unique subscriber destinations from watchlist_items
+  const subscribers = await env.actionguard_db
+    .prepare(
+      `SELECT DISTINCT alert_webhook_url, notify_email
+       FROM watchlist_items
+       WHERE alert_webhook_url IS NOT NULL OR notify_email IS NOT NULL`,
+    )
+    .all<{ alert_webhook_url?: string; notify_email?: string }>();
+
+  const subsList = subscribers.results || [];
+  let notifiedCount = 0;
+
+  for (const sub of subsList) {
+    if (sub.alert_webhook_url) {
+      try {
+        const payload = {
+          text: `📊 *ActionGuard Weekly MCP Ecosystem Digest*\nDetected ${events.length} schema alterations across the network this week.\nView status: https://actionguard.ai/status`,
+          blocks: [
+            {
+              type: 'header',
+              text: { type: 'plain_text', text: '📊 ActionGuard Weekly Digest', emoji: true },
+            },
+            {
+              type: 'section',
+              text: {
+                type: 'mrkdwn',
+                text: `In the past 7 days, ActionGuard edge monitors recorded *${events.length} schema drift events* across monitored MCP servers.`,
+              },
+            },
+            {
+              type: 'actions',
+              elements: [
+                {
+                  type: 'button',
+                  text: { type: 'plain_text', text: 'View Ecosystem Health', emoji: true },
+                  url: 'https://actionguard.ai/status',
+                  style: 'primary',
+                },
+              ],
+            },
+          ],
+        };
+        await fetch(sub.alert_webhook_url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        notifiedCount++;
+      } catch {
+        // Continue notifying next
+      }
+    }
+
+    if (sub.notify_email && env.RESEND_API_KEY) {
+      try {
+        await sendEmailViaResend({
+          apiKey: env.RESEND_API_KEY,
+          from: env.ALERT_FROM_EMAIL || 'ActionGuard Digest <alerts@where.care>',
+          to: sub.notify_email,
+          subject: `📊 ActionGuard Weekly MCP Digest: ${events.length} Alterations Detected`,
+          html: `<div style="font-family:sans-serif;padding:24px;background:#090d16;color:#fff;">
+            <h2>Weekly MCP Ecosystem Digest</h2>
+            <p>ActionGuard continuous edge probing recorded <strong>${events.length} schema events</strong> this week.</p>
+            <p><a href="https://actionguard.ai/status" style="color:#60a5fa;">Inspect Live Status Dashboard &rarr;</a></p>
+          </div>`,
+        });
+        notifiedCount++;
+      } catch {
+        // Continue notifying next
+      }
+    }
+  }
+
+  return { subscribersNotified: notifiedCount, driftEventsSummarized: events.length };
+}
+
 function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')

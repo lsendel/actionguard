@@ -38,7 +38,7 @@ If you’ve wired AI agents to external MCP tools (like GitHub, Postgres, Slack,
 2. **Self-Serve Domain Verification:**
    Maintainers can claim their domain by adding a DNS TXT record (`actionguard-verification=<token>`) or hosting `/.well-known/actionguard-verification.txt`. This unlocks a Gold **"⭐ Domain Verified"** badge on their profile.
 
-3. **Public Reliability Index (28 Top MCP Servers Seeded):**
+3. **Public Reliability Index (44 Monitored MCP Servers):**
    We continuously probe top open-source MCP tools (GitHub, SQLite, Postgres, Puppeteer, Brave Search, etc.) every 15 minutes across 300+ edge locations and publish real-time uptime, latency, and pinned hashes at [actionguard.ai/index](https://actionguard.ai/index).
 
 4. **Zero-Trust Runtime Security Firewall (`/v1/proxy`):**

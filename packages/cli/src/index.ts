@@ -3,11 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
 import {
+  type ActionGuardManifest,
   type InspectionReport,
   type LintFinding,
   compileToA2AAgentCard,
   compileToDnsAidRecords,
   compileToMcpRegistry,
+  computeDualHash,
+  convertOpenApiToMcp,
   runInspection,
   validateManifest,
 } from '@actionguard/core';
@@ -22,6 +25,7 @@ function printHelp(): void {
 
 \x1b[1mUSAGE:\x1b[0m
   actionguard init [--name <name>]          Initialize ActionGuard manifests & GitHub Action in project
+  actionguard convert <spec|url>            Convert OpenAPI/Swagger spec into verified MCP manifests
   actionguard inspect <url>                 Run 5-stage live protocol & security audit
   actionguard compile [manifest.json]       Compile actionguard.json to MCP, A2A & DNS-AID
   actionguard check <url> --pin <hash>      CI/CD gate: exit 1 if remote schema drifts
@@ -153,6 +157,104 @@ jobs:
     '  2. Lock your schema in CI:    \x1b[36mactionguard check <url> --pin <hash>\x1b[0m',
   );
   console.log('  3. Claim your domain badge:   \x1b[36mhttps://actionguard.ai/verify\x1b[0m\n');
+}
+
+async function handleConvert(specPathOrUrl?: string, outDir = '.'): Promise<void> {
+  if (!specPathOrUrl) {
+    console.error(
+      '\x1b[31mError: Missing OpenAPI file path or URL.\x1b[0m Usage: actionguard convert <openapi.json|url>',
+    );
+    process.exit(1);
+    return;
+  }
+
+  console.log(`\n\x1b[36m⚡ Converting OpenAPI specification:\x1b[0m ${specPathOrUrl} ...\n`);
+
+  let specContent = '';
+  try {
+    if (specPathOrUrl.startsWith('http://') || specPathOrUrl.startsWith('https://')) {
+      const res = await fetch(specPathOrUrl);
+      if (!res.ok) throw new Error(`HTTP fetch failed with status ${res.status}`);
+      specContent = await res.text();
+    } else {
+      specContent = fs.readFileSync(path.resolve(specPathOrUrl), 'utf8');
+    }
+
+    const conversion = convertOpenApiToMcp(specContent);
+    const hashes = await computeDualHash(conversion.tools);
+
+    const targetManifest: ActionGuardManifest = {
+      $schema: 'https://actionguard.ai/schema/v1/actionguard.json',
+      name: conversion.projectName,
+      title: conversion.title,
+      description: conversion.description,
+      version: '1.0.0',
+      domain: `${conversion.projectName}.example.com`,
+      endpoints: [
+        {
+          protocol: 'mcp',
+          transport: 'streamable-http',
+          url: `https://${conversion.projectName}.example.com/mcp`,
+        },
+      ],
+      capabilities: {
+        tools: conversion.tools.map((t) => ({
+          id: t.name,
+          name: t.name,
+          description: t.description || '',
+          annotations: t.annotations,
+          inputSchema: t.inputSchema as Record<string, unknown>,
+        })),
+      },
+    };
+
+    const outPath = path.resolve(outDir);
+    fs.mkdirSync(outPath, { recursive: true });
+
+    // Write actionguard.json
+    fs.writeFileSync(
+      path.join(outPath, 'actionguard.json'),
+      `${JSON.stringify(targetManifest, null, 2)}\n`,
+    );
+    console.log('  \x1b[32m✔\x1b[0m Generated \x1b[1mactionguard.json\x1b[0m');
+
+    // Write server.json
+    const mcpRegistry = compileToMcpRegistry(targetManifest);
+    fs.writeFileSync(
+      path.join(outPath, 'server.json'),
+      `${JSON.stringify(mcpRegistry, null, 2)}\n`,
+    );
+    console.log(
+      '  \x1b[32m✔\x1b[0m Generated \x1b[1mserver.json\x1b[0m (MCP Model Context Protocol Registry)',
+    );
+
+    // Write .well-known/agent-card.json
+    const wellKnownDir = path.join(outPath, '.well-known');
+    fs.mkdirSync(wellKnownDir, { recursive: true });
+    const agentCard = compileToA2AAgentCard(targetManifest);
+    fs.writeFileSync(
+      path.join(wellKnownDir, 'agent-card.json'),
+      `${JSON.stringify(agentCard, null, 2)}\n`,
+    );
+    console.log(
+      '  \x1b[32m✔\x1b[0m Generated \x1b[1m.well-known/agent-card.json\x1b[0m (A2A Protocol)',
+    );
+
+    console.log(
+      `\n\x1b[32m🎉 Successfully converted ${conversion.tools.length} OpenAPI operations into MCP tools!\x1b[0m`,
+    );
+    console.log('\x1b[1mCryptographic Dual-Hash Baseline:\x1b[0m');
+    console.log(`  Schema SHA-256:       \x1b[34m${hashes.schema_sha256}\x1b[0m`);
+    console.log(`  Descriptions SHA-256: \x1b[35m${hashes.descriptions_sha256}\x1b[0m`);
+    console.log('\nNext steps:');
+    console.log(
+      `  Lock this schema in CI: \x1b[36mactionguard check <url> --pin ${hashes.schema_sha256}\x1b[0m\n`,
+    );
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\x1b[31mConversion failed:\x1b[0m ${msg}`);
+    process.exit(1);
+  }
 }
 
 function writeGithubOutputs(report: InspectionReport): void {
@@ -600,6 +702,10 @@ async function main(): Promise<void> {
     const nameIdx = args.indexOf('--name');
     const customName = nameIdx !== -1 ? args[nameIdx + 1] : undefined;
     await handleInit(customName);
+  } else if (command === 'convert') {
+    const outIdx = args.indexOf('--out');
+    const outDir = outIdx !== -1 ? args[outIdx + 1] : '.';
+    await handleConvert(args[1], outDir);
   } else if (command === 'inspect') {
     await handleInspect(args[1], { commentPr, githubToken });
   } else if (command === 'compile') {

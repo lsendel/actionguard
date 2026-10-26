@@ -1,6 +1,6 @@
 # ActionGuard.ai
 
-[![ActionGuard Verified](https://actionguard.ai/badge/actionguard-mcp.svg)](https://actionguard.ai/servers/actionguard-mcp)
+[![ActionGuard Verified](https://actionguard.ai/badge/actionguard.ai.svg)](https://actionguard.ai/servers/actionguard.ai)
 [![Glama Quality Score](https://glama.ai/mcp/servers/lsendel/actionguard/badges/score.svg)](https://glama.ai/mcp/servers/lsendel/actionguard)
 [![Smithery](https://smithery.ai/badge/lsendel/actionguard)](https://smithery.ai/server/lsendel/actionguard)
 [![CI Tests](https://github.com/lsendel/actionguard/actions/workflows/publish-npm.yml/badge.svg)](https://github.com/lsendel/actionguard/actions)

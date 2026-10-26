@@ -414,6 +414,9 @@ export function renderServerProfileHtml(service: {
         <span style="font-size:13px;color:#fff;font-weight:600;">Embed Live Status in GitHub README</span>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="/connect/${encodeURIComponent(service.slug)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px;">
+          <span>🔌</span> Connect Client (Cursor / Claude / VS Code) &rarr;
+        </a>
         <button class="copy-btn" onclick="copyBadgeMarkdown(this)">Copy Badge Markdown</button>
         ${
           hasSchemaPin

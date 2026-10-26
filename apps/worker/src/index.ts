@@ -11,8 +11,14 @@ import {
 } from '@actionguard/core';
 import { type Context, Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { dispatchDriftAlerts, renderWelcomeEmailHtml, sendEmailViaResend } from './alerts.js';
+import {
+  dispatchDriftAlerts,
+  dispatchWeeklyDigest,
+  renderWelcomeEmailHtml,
+  sendEmailViaResend,
+} from './alerts.js';
 import { type BadgeStyle, renderBadgeSvg, renderShieldsJson } from './badges.js';
+import { renderConnectHtml } from './connect-ui.js';
 import { syncCrawlerCatalog } from './crawler.js';
 import { renderDiffPage } from './diff-ui.js';
 import { type FeedItem, renderRssFeedXml } from './feed.js';
@@ -616,6 +622,41 @@ app.post('/api/catalog/sync', async (c) => {
   return c.json(result);
 });
 
+// 1-Click Agent Client Configurator (Claude Desktop, Cursor, VS Code, Zed, Windsurf)
+app.get('/connect', async (c) => {
+  return c.html(renderConnectHtml());
+});
+
+app.get('/connect/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  let service: { slug: string; name: string; url: string; pinnedHash?: string | null } | undefined;
+
+  if (c.env.actionguard_db) {
+    try {
+      const row = await c.env.actionguard_db
+        .prepare(
+          `SELECT s.slug, s.display_name as name, e.url, e.current_schema_sha256 as pinnedHash
+           FROM services s
+           LEFT JOIN service_endpoints e ON s.id = e.service_id
+           WHERE s.slug = ? OR LOWER(s.canonical_domain) = ?
+           LIMIT 1`,
+        )
+        .bind(slug, slug.toLowerCase())
+        .first<{
+          slug: string;
+          name: string;
+          url: string;
+          pinnedHash?: string | null;
+        }>();
+      if (row) service = row;
+    } catch {
+      // Fallback gracefully
+    }
+  }
+
+  return c.html(renderConnectHtml(service));
+});
+
 // Visual Schema & Prompt Diff Inspector Page
 app.get('/diff', (c) => {
   return c.html(renderDiffPage());
@@ -945,6 +986,15 @@ app.post('/api/watchlist/subscribe', async (c) => {
   return c.json({
     success: true,
     message: `Active! Alerts for ${service.display_name} will be dispatched to your ${destinationDesc}.`,
+  });
+});
+
+// Weekly Schema Drift Digest Dispatcher API
+app.post('/api/alerts/digest', async (c) => {
+  const result = await dispatchWeeklyDigest(c.env);
+  return c.json({
+    success: true,
+    ...result,
   });
 });
 

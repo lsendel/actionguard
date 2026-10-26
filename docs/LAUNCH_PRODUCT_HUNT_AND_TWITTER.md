@@ -64,7 +64,7 @@ We'd love your feedback!
 > https://actionguard.ai/verify
 
 ### Tweet 4 (Public Reliability Index)
-> We're already continuously monitoring the top 28 open-source MCP tools (GitHub, Postgres, SQLite, Puppeteer, Brave Search, etc.) across 300+ Cloudflare edge locations.
+> We're already continuously monitoring 44 open-source MCP tools (GitHub, Postgres, SQLite, Puppeteer, Brave Search, etc.) across 300+ Cloudflare edge locations.
 >
 > Check uptime, latency, and pinned digests on the public index:
 > https://actionguard.ai/index
@@ -99,7 +99,7 @@ As more of us are wiring Claude Desktop, Cursor, and custom agent frameworks to 
 We built https://actionguard.ai to solve this:
 - **Instant 5-Stage Probe:** Tests Streamable HTTP JSON-RPC 2.0 conformance, measures TTFB latency, lints schema strictness, and scans for prompt injection.
 - **Dual-Hash Drift Detection:** Hashes the JSON Schema separate from tool descriptions so you know whether a change broke the interface or mutated the prompt.
-- **Public Reliability Index:** Live uptime & status for 28 popular MCP servers (GitHub, Postgres, SQLite, Slack, etc.) monitored every 15 minutes.
+- **Public Reliability Index:** Live uptime & status for 44 popular MCP servers (GitHub, Postgres, SQLite, Slack, etc.) monitored every 15 minutes.
 - **Self-Serve Domain Verification:** Prove ownership via DNS TXT records to earn a verified status badge.
 - **GitHub Action CI Gate:** Pin your expected schema hash in CI to fail builds if an upstream tool changes underneath you.
 

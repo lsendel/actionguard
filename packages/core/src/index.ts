@@ -29,6 +29,10 @@ export { lintSchemaStrictness } from './linter/schema-strictness.js';
 
 // Compiler & Artifacts
 export {
+  convertOpenApiToMcp,
+  type OpenApiConversionResult,
+} from './compiler/openapi.js';
+export {
   compileToA2AAgentCard,
   compileToDnsAidRecords,
   compileToGitHubAction,
