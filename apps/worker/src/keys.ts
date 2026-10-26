@@ -23,11 +23,20 @@ export async function createNewApiKey(
   if (!env.actionguard_db) return null;
 
   // Find or create organization for this developer
-  const orgId = `org_${Math.random().toString(36).substring(2, 10)}`;
-  await env.actionguard_db
-    .prepare('INSERT OR IGNORE INTO organizations (id, name, slug) VALUES (?, ?, ?)')
-    .bind(orgId, email, email.replace(/[^a-z0-9]/g, '_'))
-    .run();
+  const orgSlug = email.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const org = await env.actionguard_db
+    .prepare('SELECT id FROM organizations WHERE slug = ?')
+    .bind(orgSlug)
+    .first<{ id: string }>();
+
+  let orgId = org?.id;
+  if (!orgId) {
+    orgId = `org_${Math.random().toString(36).substring(2, 10)}`;
+    await env.actionguard_db
+      .prepare('INSERT INTO organizations (id, name, slug) VALUES (?, ?, ?)')
+      .bind(orgId, email, orgSlug)
+      .run();
+  }
 
   const randBytes = new Uint8Array(24);
   crypto.getRandomValues(randBytes);

@@ -41,4 +41,54 @@ describe('Stripe Checkout & Subscription Webhook', () => {
     const res = await handleStripeWebhook(req, env);
     expect(res.success).toBe(true);
   });
+
+  it('reuses existing organization when creating api keys repeatedly for same email', async () => {
+    const orgs = new Map<string, { id: string; name: string; slug: string }>();
+    const keys = new Map<string, unknown>();
+
+    const mockDb = {
+      prepare: (sql: string) => ({
+        bind: (...args: unknown[]) => ({
+          first: async () => {
+            if (sql.includes('SELECT id FROM organizations WHERE slug = ?')) {
+              const slug = args[0] as string;
+              return orgs.get(slug) || null;
+            }
+            return null;
+          },
+          run: async () => {
+            if (sql.includes('INSERT INTO organizations')) {
+              const [id, name, slug] = args as [string, string, string];
+              orgs.set(slug, { id, name, slug });
+            } else if (sql.includes('INSERT INTO api_keys')) {
+              const [id] = args as [string];
+              keys.set(id, args);
+            }
+            return { success: true };
+          },
+        }),
+      }),
+    };
+
+    const env = { actionguard_db: mockDb } as unknown as Env;
+
+    const key1 = await createCheckoutSession(env, {
+      plan: 'pro',
+      email: 'repeat@testco.com',
+      successUrl: 'https://actionguard.ai/pricing/success',
+      cancelUrl: 'https://actionguard.ai/pricing',
+    });
+
+    const key2 = await createCheckoutSession(env, {
+      plan: 'pro',
+      email: 'repeat@testco.com',
+      successUrl: 'https://actionguard.ai/pricing/success',
+      cancelUrl: 'https://actionguard.ai/pricing',
+    });
+
+    expect(key1.sessionId).toMatch(/^cs_test_/);
+    expect(key2.sessionId).toMatch(/^cs_test_/);
+    expect(orgs.size).toBe(1);
+    expect(keys.size).toBe(2);
+  });
 });
