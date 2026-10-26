@@ -155,6 +155,19 @@ jobs:
   console.log('  3. Claim your domain badge:   \x1b[36mhttps://actionguard.ai/verify\x1b[0m\n');
 }
 
+function writeGithubOutputs(report: InspectionReport): void {
+  if (process.env.GITHUB_OUTPUT) {
+    try {
+      fs.appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        `schema_hash=${report.hashes.schema_sha256}\ndescriptions_hash=${report.hashes.descriptions_sha256}\ngrade=${report.score.grade}\nscore=${report.score.numericalScore}\n`,
+      );
+    } catch {
+      // Ignore output append error
+    }
+  }
+}
+
 async function handleInspect(
   targetUrl?: string,
   options: { commentPr?: boolean; githubToken?: string } = {},
@@ -209,6 +222,8 @@ async function handleInspect(
             : '\x1b[31m[FAIL]\x1b[0m';
       console.log(`  ${tag} \x1b[1m${f.title}\x1b[0m: ${f.message}`);
     }
+
+    writeGithubOutputs(report);
 
     console.log(
       `\n\x1b[32m✔ Inspection complete.\x1b[0m View live dashboard at: https://actionguard.ai/reports/${report.id}\n`,
@@ -353,6 +368,8 @@ async function handleCheck(
         pinnedHash,
       });
     }
+
+    writeGithubOutputs(report);
 
     if (format === 'json') {
       console.log(JSON.stringify(report, null, 2));

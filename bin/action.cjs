@@ -5325,6 +5325,21 @@ jobs:
   );
   console.log("  3. Claim your domain badge:   \x1B[36mhttps://actionguard.ai/verify\x1B[0m\n");
 }
+function writeGithubOutputs(report) {
+  if (process.env.GITHUB_OUTPUT) {
+    try {
+      import_node_fs2.default.appendFileSync(
+        process.env.GITHUB_OUTPUT,
+        `schema_hash=${report.hashes.schema_sha256}
+descriptions_hash=${report.hashes.descriptions_sha256}
+grade=${report.score.grade}
+score=${report.score.numericalScore}
+`
+      );
+    } catch {
+    }
+  }
+}
 async function handleInspect(targetUrl, options = {}) {
   if (!targetUrl) {
     console.error("\x1B[31mError: Missing target URL.\x1B[0m Usage: actionguard inspect <url>");
@@ -5367,6 +5382,7 @@ async function handleInspect(targetUrl, options = {}) {
       const tag = f.status === "pass" ? "\x1B[32m[PASS]\x1B[0m" : f.status === "warn" ? "\x1B[33m[WARN]\x1B[0m" : "\x1B[31m[FAIL]\x1B[0m";
       console.log(`  ${tag} \x1B[1m${f.title}\x1B[0m: ${f.message}`);
     }
+    writeGithubOutputs(report);
     console.log(
       `
 \x1B[32m\u2714 Inspection complete.\x1B[0m View live dashboard at: https://actionguard.ai/reports/${report.id}
@@ -5491,6 +5507,7 @@ async function handleCheck(targetUrl, pinnedHash, format = "text", options = {})
         pinnedHash
       });
     }
+    writeGithubOutputs(report);
     if (format === "json") {
       console.log(JSON.stringify(report, null, 2));
     } else if (format === "sarif") {

@@ -141,4 +141,28 @@ describe('ActionGuard CLI', () => {
     // Clean up
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  it('writes step outputs to GITHUB_OUTPUT when running in CI environment', () => {
+    const tempOutputFile = path.join(os.tmpdir(), `ag-gh-out-${Date.now()}.txt`);
+    try {
+      execSync(`node ${CLI_PATH} inspect https://actionguard.ai/mcp`, {
+        env: {
+          ...process.env,
+          GITHUB_OUTPUT: tempOutputFile,
+        },
+        encoding: 'utf8',
+      });
+
+      expect(fs.existsSync(tempOutputFile)).toBe(true);
+      const content = fs.readFileSync(tempOutputFile, 'utf8');
+      expect(content).toContain('schema_hash=');
+      expect(content).toContain('descriptions_hash=');
+      expect(content).toContain('grade=');
+      expect(content).toContain('score=');
+    } finally {
+      if (fs.existsSync(tempOutputFile)) {
+        fs.unlinkSync(tempOutputFile);
+      }
+    }
+  });
 });

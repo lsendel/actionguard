@@ -25,10 +25,25 @@ inputs:
     required: false
     default: 'true'
 
+outputs:
+  schema_hash:
+    description: 'Computed schema_sha256 digest'
+    value: ${{ steps.gate.outputs.schema_hash }}
+  descriptions_hash:
+    description: 'Computed descriptions_sha256 digest'
+    value: ${{ steps.gate.outputs.descriptions_hash }}
+  grade:
+    description: 'Overall reliability grade (A+, A, B, C, D, F)'
+    value: ${{ steps.gate.outputs.grade }}
+  score:
+    description: 'Numerical score (0-100)'
+    value: ${{ steps.gate.outputs.score }}
+
 runs:
   using: 'composite'
   steps:
     - name: Run ActionGuard Protocol Gate
+      id: gate
       shell: bash
       run: |
         EXTRA_ARGS=""
