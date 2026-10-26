@@ -49,6 +49,41 @@ jobs:
 ### 2. Zero-Trust Runtime Gateway Proxy ("Cloudflare for MCP")
 Route agent tool calls through ActionGuard's edge firewall to terminate drifted tools with `HTTP 423 Locked`:
 
+```json
+{
+  "mcpServers": {
+    "weather": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-weather",
+        "--proxy",
+        "https://actionguard.ai/proxy/v1?target=https%3A%2F%2Fapi.weather.com%2Fmcp&pin=a1b2c3d4..."
+      ]
+    }
+  }
+}
+```
+
+---
+
+### 3. Embed Live Status Badges in Your Repository
+
+Show real-time verification and protocol compliance on your MCP server's GitHub repository.
+
+#### Markdown (Native SVG)
+```markdown
+[![ActionGuard Verified](https://actionguard.ai/badge/<your-domain-or-slug>.svg)](https://actionguard.ai/servers/<your-domain-or-slug>)
+```
+
+#### Shields.io Endpoint
+```markdown
+[![ActionGuard Verified](https://img.shields.io/endpoint?url=https%3A%2F%2Factionguard.ai%2Fbadge%2F<your-domain-or-slug>.json)](https://actionguard.ai/servers/<your-domain-or-slug>)
+```
+
+* **Domain Verified Badge:** Gold (`#f59e0b`) badge `⭐ A • Domain Owner` displayed when domain ownership is claimed via DNS TXT or `.well-known/actionguard-verification`.
+* **Reliability Grades:** Dynamic color coding based on cryptographic dual-hash baseline and 5-stage protocol inspection (`A+`, `A`, `B`, `C`, `D`, `F`).
+
 #### Claude Desktop & Cursor (`claude_desktop_config.json`)
 ```json
 {

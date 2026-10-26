@@ -1,6 +1,9 @@
 name: Publish to npm
 
 on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
   release:
     types: [created]
   workflow_dispatch:
@@ -30,18 +33,19 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Code Quality & Linting
+        run: pnpm lint
+
       - name: Run Vitest Suite
         run: pnpm test
 
-      - name: Build Packages
-        run: |
-          pnpm --filter @actionguard/core build
-          pnpm --filter @actionguard/cli build
+      - name: Build Packages & Bundles
+        run: pnpm build
 
       - name: Publish Packages to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm config set //registry.npmjs.org/:_authToken "${NODE_AUTH_TOKEN}"
-          pnpm --filter @actionguard/core publish --access public --no-git-checks
-          pnpm --filter @actionguard/cli publish --access public --no-git-checks
+          pnpm --filter @actionguard/core publish --access public --no-git-checks --provenance
+          pnpm --filter @actionguard/cli publish --access public --no-git-checks --provenance
