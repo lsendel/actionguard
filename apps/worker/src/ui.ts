@@ -247,7 +247,6 @@ export function renderHomepageHtml(): string {
       <div class="sample-triggers">
         <span>Quick Samples:</span>
         <a href="/inspect?url=https%3A%2F%2Fapi.github.com%2Fmcp" class="sample-btn">GitHub MCP</a>
-        <a href="/inspect?url=https%3A%2F%2Fanalytics.where.care%2Fmcp" class="sample-btn">Where.Care MCP</a>
         <a href="/inspect?url=https%3A%2F%2Factionguard.ai%2Fmcp" class="sample-btn">ActionGuard Live MCP</a>
       </div>
     </div>

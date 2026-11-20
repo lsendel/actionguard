@@ -118,7 +118,7 @@ export function renderVerifyHtml(domain?: string, token?: string): string {
     <div class="verify-box">
       <div class="form-group">
         <label>Your Agent Domain</label>
-        <input type="text" id="targetDomain" value="${defaultDomain}" placeholder="e.g. analytics.where.care or mycompany.com" required />
+        <input type="text" id="targetDomain" value="${defaultDomain}" placeholder="e.g. example.com or mycompany.com" required />
       </div>
 
       <div class="step-card">

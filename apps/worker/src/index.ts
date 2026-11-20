@@ -36,6 +36,7 @@ import { createCheckoutSession, handleStripeWebhook, renderPricingSuccessHtml } 
 import type { Env } from './types.js';
 import { renderHomepageHtml, renderIndexHtml, renderReportHtml } from './ui.js';
 import { renderVerifyHtml } from './verify.js';
+import { serviceVisibility } from './visibility.js';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -77,6 +78,8 @@ app.use('*', async (c, next) => {
   }
   return next();
 });
+
+app.use('*', serviceVisibility);
 
 // SSR Web UI: Homepage
 app.get('/', (c) => {
