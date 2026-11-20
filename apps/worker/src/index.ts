@@ -26,6 +26,7 @@ import { GUIDES, renderGuideHtml } from './guides.js';
 import { INDEXNOW_KEY, submitToIndexNow } from './indexnow.js';
 import { createNewApiKey } from './keys.js';
 import { renderOgCardSvg } from './og.js';
+import { newServiceVisibility, validateOwnerMarker } from './owner-visibility.js';
 import { renderPlaygroundHtml } from './playground-ui.js';
 import { renderPricingHtml } from './pricing-ui.js';
 import { handleProxyRequest } from './proxy.js';
@@ -1005,16 +1006,17 @@ app.post('/api/alerts/digest', async (c) => {
 });
 
 // Shared helper to enforce One domain, one profile and track real probe results
-async function persistInspectionReport(
+export async function persistInspectionReport(
   db: D1Database,
   report: InspectionReport,
+  ownerFleet = false,
 ): Promise<{ serviceId: string; slug: string }> {
-  const cleanDomain = report.targetDomain.toLowerCase();
+  const cleanDomain = report.targetDomain.toLowerCase().replace(/\.+$/, '');
 
   // Find existing service by canonical_domain or slug
   const existing = await db
     .prepare(
-      'SELECT id, org_id, slug, verification_tier, overall_grade FROM services WHERE LOWER(canonical_domain) = ? OR slug = ? LIMIT 1',
+      'SELECT id, org_id, slug, verification_tier, overall_grade, listed FROM services WHERE LOWER(canonical_domain) = ? OR slug = ? LIMIT 1',
     )
     .bind(cleanDomain, cleanDomain)
     .first<{
@@ -1023,8 +1025,15 @@ async function persistInspectionReport(
       slug: string;
       verification_tier: string;
       overall_grade: string;
+      listed: number;
     }>();
 
+  // An unauthenticated marker can restrict a NEW registration only. It cannot
+  // hide an existing public third-party row or change a prior public decision.
+  if (ownerFleet && existing?.listed === 1) {
+    throw new Error('existing public service requires authenticated operator visibility review');
+  }
+  const visibility = newServiceVisibility(cleanDomain, ownerFleet);
   const orgId = existing?.org_id || `org_pub_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const serviceId = existing?.id || `srv_${cleanDomain.replace(/[^a-zA-Z0-9]/g, '_')}`;
   const slug = existing?.slug || cleanDomain;
@@ -1058,10 +1067,19 @@ async function persistInspectionReport(
         .bind(orgId, report.targetDomain, slug, 'community'),
       db
         .prepare(
-          `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade, verification_tier)
-           VALUES (?, ?, ?, ?, ?, ?, 'Unverified (curated listing)')`,
+          `INSERT INTO services (id, org_id, slug, display_name, canonical_domain, overall_grade, verification_tier, listed, owner_fleet)
+           VALUES (?, ?, ?, ?, ?, ?, 'Unverified (curated listing)', ?, ?)`,
         )
-        .bind(serviceId, orgId, slug, report.targetDomain, cleanDomain, gradeToStore),
+        .bind(
+          serviceId,
+          orgId,
+          slug,
+          report.targetDomain,
+          cleanDomain,
+          gradeToStore,
+          visibility.listed,
+          visibility.ownerFleet,
+        ),
       db
         .prepare(
           `INSERT INTO service_endpoints (id, service_id, protocol, url, current_schema_sha256, current_descriptions_sha256, last_status, last_latency_ms, last_checked_at)
@@ -1147,6 +1165,14 @@ app.get('/inspect', async (c) => {
   if (!url) return c.redirect('/');
 
   try {
+    const ownerFleet = validateOwnerMarker(
+      c.req.query('owner_fleet') === undefined
+        ? undefined
+        : c.req.query('owner_fleet') === '1'
+          ? true
+          : c.req.query('owner_fleet'),
+      c.req.query('visibility'),
+    );
     const report = await runInspection(url, { fetchFn: createInternalFetcher(c.env) });
 
     // Save report to R2 asynchronously if bucket is bound
@@ -1162,7 +1188,7 @@ app.get('/inspect', async (c) => {
 
     // Persist to D1
     if (c.env.actionguard_db) {
-      c.executionCtx.waitUntil(persistInspectionReport(c.env.actionguard_db, report));
+      await persistInspectionReport(c.env.actionguard_db, report, ownerFleet);
     }
 
     return c.html(renderReportHtml(report));
@@ -1181,12 +1207,15 @@ app.get('/inspect', async (c) => {
 
 // API: Run Live Inspection
 app.post('/api/inspect', async (c) => {
-  const body = await c.req.json<{ url: string }>().catch(() => null);
+  const body = await c.req
+    .json<{ url: string; owner_fleet?: boolean; visibility?: string }>()
+    .catch(() => null);
   if (!body || !body.url) {
     return c.json({ error: 'Missing required field: "url"' }, 400);
   }
 
   try {
+    const ownerFleet = validateOwnerMarker(body.owner_fleet, body.visibility);
     const report = await runInspection(body.url, { fetchFn: createInternalFetcher(c.env) });
 
     // Persist full report to R2
@@ -1200,7 +1229,7 @@ app.post('/api/inspect', async (c) => {
 
     // Persist service & endpoint in D1
     if (c.env.actionguard_db) {
-      await persistInspectionReport(c.env.actionguard_db, report);
+      await persistInspectionReport(c.env.actionguard_db, report, ownerFleet);
     }
 
     return c.json(report);
