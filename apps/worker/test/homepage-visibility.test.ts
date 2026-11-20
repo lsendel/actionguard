@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { renderHomepageHtml } from '../src/ui.js';
+import { renderVerifyHtml } from '../src/verify.js';
 
 describe('Homepage public samples', () => {
+  it('uses a neutral verification placeholder', () => {
+    const html = renderVerifyHtml();
+    expect(html).not.toContain('analytics.where.care');
+    expect(html).toContain('example.com');
+  });
   it('does not advertise hidden owner fleet endpoints', () => {
     const html = renderHomepageHtml();
     for (const endpoint of [
