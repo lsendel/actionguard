@@ -99,7 +99,7 @@ app.get('/index', async (c) => {
   if (c.env.actionguard_db) {
     try {
       const countRes = await c.env.actionguard_db
-        .prepare('SELECT COUNT(*) as total FROM services')
+        .prepare('SELECT COUNT(*) as total FROM services WHERE listed = 1')
         .first<{ total: number }>();
       totalCount = countRes?.total || 0;
 
@@ -109,6 +109,7 @@ app.get('/index', async (c) => {
                   e.last_checked_at, e.last_status
            FROM services s
            LEFT JOIN service_endpoints e ON s.id = e.service_id
+           WHERE s.listed = 1
            GROUP BY s.id
            ORDER BY 
              CASE s.overall_grade
@@ -178,6 +179,7 @@ app.get('/status', async (c) => {
                   e.url, e.last_status, e.last_latency_ms, e.current_schema_sha256, e.last_checked_at
            FROM services s
            LEFT JOIN service_endpoints e ON s.id = e.service_id
+           WHERE s.listed = 1
            ORDER BY s.display_name ASC`,
         )
         .all<StatusServiceItem>();
@@ -223,6 +225,7 @@ app.get('/feed.xml', async (c) => {
            FROM snapshots snap
            JOIN service_endpoints ep ON snap.endpoint_id = ep.id
            JOIN services s ON ep.service_id = s.id
+           WHERE s.listed = 1
            ORDER BY snap.observed_at DESC
            LIMIT 25`,
         )
@@ -287,7 +290,7 @@ app.get('/sitemap.xml', async (c) => {
   if (c.env.actionguard_db) {
     try {
       const rows = await c.env.actionguard_db
-        .prepare('SELECT slug, created_at FROM services LIMIT 500')
+        .prepare('SELECT slug, created_at FROM services WHERE listed = 1 LIMIT 500')
         .all<{ slug: string; created_at: string }>();
       services = rows.results || [];
     } catch {
@@ -1382,7 +1385,7 @@ app.post('/v1/routing/resolve', async (c) => {
       `SELECT s.id, s.slug, s.display_name, s.canonical_domain, s.overall_grade, e.url, e.current_schema_sha256, e.last_latency_ms
        FROM services s
        JOIN service_endpoints e ON s.id = e.service_id
-       WHERE s.overall_grade IN ('A+', 'A')
+       WHERE s.overall_grade IN ('A+', 'A') AND s.listed = 1
        LIMIT 10`,
     )
     .all();
