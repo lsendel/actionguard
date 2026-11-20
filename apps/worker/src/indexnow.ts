@@ -26,7 +26,7 @@ export async function submitToIndexNow(
 
     if (env.actionguard_db) {
       const services = await env.actionguard_db
-        .prepare('SELECT slug FROM services LIMIT 100')
+        .prepare('SELECT slug FROM services WHERE listed = 1 LIMIT 100')
         .all<{ slug: string }>();
 
       if (services.results) {
